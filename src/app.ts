@@ -18,36 +18,70 @@ export const createApp = (): Application => {
   app.set('trust proxy', 1);
 
   // Enhanced security headers with Helmet
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
+  // Relaxed CSP for Swagger UI
+  app.use((req, res, next) => {
+    if (req.path.startsWith(`${config.apiPrefix}/docs`)) {
+      // More permissive CSP for Swagger UI
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'https:', 'validator.swagger.io'],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+          },
         },
-      },
-      hsts: {
-        maxAge: 31536000, // 1 year
-        includeSubDomains: true,
-        preload: true,
-      },
-      frameguard: {
-        action: 'deny',
-      },
-      noSniff: true,
-      xssFilter: true,
-      referrerPolicy: {
-        policy: 'strict-origin-when-cross-origin',
-      },
-    })
-  );
+        hsts: {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        },
+        frameguard: {
+          action: 'deny',
+        },
+        noSniff: true,
+        xssFilter: true,
+        referrerPolicy: {
+          policy: 'strict-origin-when-cross-origin',
+        },
+      })(req, res, next);
+    } else {
+      // Strict CSP for all other routes
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+          },
+        },
+        hsts: {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        },
+        frameguard: {
+          action: 'deny',
+        },
+        noSniff: true,
+        xssFilter: true,
+        referrerPolicy: {
+          policy: 'strict-origin-when-cross-origin',
+        },
+      })(req, res, next);
+    }
+  });
 
   // CORS configuration with allowed origins
   const allowedOrigins = config.corsOrigins.split(',').map((origin) => origin.trim());

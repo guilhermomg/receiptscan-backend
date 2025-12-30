@@ -146,6 +146,10 @@ receiptscan-backend/
 
 ## 🔍 API Endpoints
 
+**Full API Documentation:** Access the interactive Swagger UI at `/api/v1/docs` when the server is running.
+
+For example, in development: http://localhost:3000/api/v1/docs
+
 ### Health Check
 - **GET** `/api/v1/health`
   
