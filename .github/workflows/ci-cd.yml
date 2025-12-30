@@ -1,0 +1,261 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      
+    - name: Check for vulnerabilities
+      run: |
+        if npm audit --audit-level=high --json | grep -q '"vulnerabilities"'; then
+          echo "High severity vulnerabilities found!"
+          exit 1
+        fi
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run ESLint
+      run: npm run lint
+      continue-on-error: true
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests with coverage
+      run: npm test
+      env:
+        NODE_ENV: test
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security-headers-test:
+    name: Test Security Headers
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Start server
+      run: |
+        npm start &
+        sleep 5
+      env:
+        NODE_ENV: production
+        PORT: 3000
+        
+    - name: Test security headers
+      run: |
+        response=$(curl -sI http://localhost:3000/)
+        
+        # Check for required security headers
+        echo "$response" | grep -i "x-frame-options: DENY" || exit 1
+        echo "$response" | grep -i "strict-transport-security" || exit 1
+        echo "$response" | grep -i "x-content-type-options: nosniff" || exit 1
+        echo "$response" | grep -i "x-xss-protection" || exit 1
+        
+        echo "All security headers present!"
+
+  rate-limit-test:
+    name: Test Rate Limiting
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Start server
+      run: |
+        npm start &
+        sleep 5
+      env:
+        NODE_ENV: production
+        RATE_LIMIT_MAX_REQUESTS: 5
+        
+    - name: Test rate limiting
+      run: |
+        for i in {1..10}; do
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health)
+          echo "Request $i: $status"
+          
+          if [ $i -le 5 ]; then
+            if [ $status -ne 200 ]; then
+              echo "Expected 200 for request $i, got $status"
+              exit 1
+            fi
+          else
+            if [ $status -ne 429 ]; then
+              echo "Expected 429 for request $i, got $status"
+              exit 1
+            fi
+          fi
+        done
+        
+        echo "Rate limiting working correctly!"
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: [lint, test, security-audit]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm ci --only=production
+      
+    - name: Verify build
+      run: |
+        if [ ! -f "src/index.js" ]; then
+          echo "Main application file not found!"
+          exit 1
+        fi
+        echo "Build verification successful!"
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      if: github.event_name == 'push'
+      
+    - name: Build Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: false
+        tags: receiptscan-api:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [docker, security-headers-test, rate-limit-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://api-staging.receiptscan.ai
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your deployment commands here
+        # e.g., deploy to Cloud Run, Heroku, etc.
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker, security-headers-test, rate-limit-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://api.receiptscan.ai
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add your deployment commands here
+        # Ensure all security checks pass before deploying
+
+  notify:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [security-audit, lint, test, build]
+    if: failure()
+    
+    steps:
+    - name: Send notification
+      run: |
+        echo "CI/CD pipeline failed!"
+        # Add notification logic (Slack, email, etc.)
