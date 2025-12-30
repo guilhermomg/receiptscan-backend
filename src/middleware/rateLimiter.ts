@@ -42,7 +42,7 @@ export const generalRateLimiter = rateLimit({
 
 /**
  * Rate limiter for file upload endpoints
- * Limits to 10 uploads per minute per user
+ * Limits to 10 uploads per minute per user (or IP if not authenticated)
  */
 export const uploadRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -50,12 +50,9 @@ export const uploadRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise fall back to default IP handling
-    if (req.user?.uid) {
-      return `user:${req.user.uid}`;
-    }
-    // Return undefined to use default IP key generator
-    return undefined as unknown as string;
+    // Use user ID if authenticated, prefix to avoid collision with IP addresses
+    // Otherwise use default IP handling by returning undefined
+    return req.user?.uid ? `user:${req.user.uid}` : (undefined as any);
   },
   handler: (req, _res, _next) => {
     logger.warn('Upload rate limit exceeded', {
@@ -86,7 +83,7 @@ export const uploadRateLimiter = rateLimit({
 
 /**
  * Rate limiter for export endpoints
- * Limits to 5 exports per hour per user
+ * Limits to 5 exports per hour per user (or IP if not authenticated)
  */
 export const exportRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -94,12 +91,9 @@ export const exportRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise fall back to default IP handling
-    if (req.user?.uid) {
-      return `user:${req.user.uid}`;
-    }
-    // Return undefined to use default IP key generator
-    return undefined as unknown as string;
+    // Use user ID if authenticated, prefix to avoid collision with IP addresses
+    // Otherwise use default IP handling by returning undefined
+    return req.user?.uid ? `user:${req.user.uid}` : (undefined as any);
   },
   handler: (req, _res, _next) => {
     logger.warn('Export rate limit exceeded', {
@@ -130,7 +124,7 @@ export const exportRateLimiter = rateLimit({
 
 /**
  * Rate limiter for billing endpoints
- * Limits to 10 billing requests per minute per user
+ * Limits to 10 billing requests per minute per user (or IP if not authenticated)
  * Prevents abuse of checkout and portal creation
  */
 export const billingRateLimiter = rateLimit({
@@ -139,12 +133,9 @@ export const billingRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise fall back to default IP handling
-    if (req.user?.uid) {
-      return `user:${req.user.uid}`;
-    }
-    // Return undefined to use default IP key generator
-    return undefined as unknown as string;
+    // Use user ID if authenticated, prefix to avoid collision with IP addresses
+    // Otherwise use default IP handling by returning undefined
+    return req.user?.uid ? `user:${req.user.uid}` : (undefined as any);
   },
   handler: (req, _res, _next) => {
     logger.warn('Billing rate limit exceeded', {

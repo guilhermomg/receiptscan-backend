@@ -40,9 +40,12 @@ const getClientIP = (req: Request): string => {
 
 /**
  * Calculate block duration with exponential backoff
+ * Only called when failedAttempts >= MAX_FAILED_ATTEMPTS
  */
 const calculateBlockDuration = (failedAttempts: number): number => {
-  const duration = INITIAL_BLOCK_DURATION_MS * Math.pow(2, failedAttempts - MAX_FAILED_ATTEMPTS);
+  // Ensure we don't have negative exponents
+  const exponent = Math.max(0, failedAttempts - MAX_FAILED_ATTEMPTS);
+  const duration = INITIAL_BLOCK_DURATION_MS * Math.pow(2, exponent);
   return Math.min(duration, MAX_BLOCK_DURATION_MS);
 };
 

@@ -107,8 +107,8 @@ service firebase.storage {
     
     function isValidReceiptImage() {
       return request.resource.size < 10 * 1024 * 1024 && // Max 10MB
-             request.resource.contentType.matches('image/.*') ||
-             request.resource.contentType == 'application/pdf';
+             (request.resource.contentType.matches('image/.*') ||
+              request.resource.contentType == 'application/pdf');
     }
 
     // Receipt images: receipts/{userId}/{receiptId}/{filename}

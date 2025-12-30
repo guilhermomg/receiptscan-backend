@@ -5,6 +5,9 @@ import logger from '../config/logger';
 /**
  * Sanitizes a value by removing potentially dangerous characters
  * Prevents XSS, SQL/NoSQL injection, and command injection attempts
+ * Note: This is a basic defense layer. Primary protections are:
+ * - Parameterized queries (Firestore handles this)
+ * - Zod schema validation at controller level
  */
 const sanitizeValue = (value: unknown): unknown => {
   if (typeof value === 'string') {
