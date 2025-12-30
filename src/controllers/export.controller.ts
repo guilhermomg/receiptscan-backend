@@ -8,6 +8,7 @@ import { ExportService, ExportFormat } from '../services/export.service';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../config/logger';
 import { z } from 'zod';
+import { auditLogger, AuditAction } from '../services/audit.service';
 
 export class ExportController {
   private exportService: ExportService;
@@ -68,6 +69,15 @@ export class ExportController {
         format: validatedQuery.format,
         recordCount: result.recordCount,
       });
+
+      // Audit log
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.RECEIPT_EXPORT,
+        true,
+        { type: 'export', id: result.fileName },
+        { format: validatedQuery.format, recordCount: result.recordCount }
+      );
 
       res.status(200).json({
         status: 'success',

@@ -1,0 +1,48 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidReceiptImage() {
+      return request.resource.size < 10 * 1024 * 1024 && // Max 10MB
+             (request.resource.contentType.matches('image/.*') ||
+              request.resource.contentType == 'application/pdf');
+    }
+
+    // Receipt images: receipts/{userId}/{receiptId}/{filename}
+    match /receipts/{userId}/{receiptId}/{filename} {
+      // Users can upload files to their own directory
+      allow create: if isOwner(userId) && isValidReceiptImage();
+      
+      // Users can read files from their own directory
+      allow read: if isOwner(userId);
+      
+      // Users can delete files from their own directory
+      allow delete: if isOwner(userId);
+      
+      // No updates allowed (delete and recreate instead)
+      allow update: if false;
+    }
+
+    // Export files: exports/{userId}/{filename}
+    match /exports/{userId}/{filename} {
+      // Users can read their own exports
+      allow read: if isOwner(userId);
+      
+      // Only allow server-side writes (via Admin SDK)
+      allow write: if false;
+    }
+
+    // Deny all other access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

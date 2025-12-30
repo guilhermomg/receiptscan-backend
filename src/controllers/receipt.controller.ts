@@ -13,6 +13,7 @@ import {
   receiptQuerySchema,
 } from '../models/receipt.validation';
 import { z } from 'zod';
+import { auditLogger, AuditAction } from '../services/audit.service';
 
 export class ReceiptController {
   private receiptService: ReceiptService;
@@ -41,6 +42,15 @@ export class ReceiptController {
         userId: req.user.uid,
         receiptId: receipt.id,
       });
+
+      // Audit log
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.RECEIPT_CREATE,
+        true,
+        { type: 'receipt', id: receipt.id },
+        { merchant: receipt.merchant, total: receipt.total }
+      );
 
       res.status(201).json({
         status: 'success',
@@ -203,6 +213,12 @@ export class ReceiptController {
         requestId: req.requestId,
         userId: req.user.uid,
         receiptId: id,
+      });
+
+      // Audit log
+      await auditLogger.logFromRequest(req, AuditAction.RECEIPT_DELETE, true, {
+        type: 'receipt',
+        id,
       });
 
       res.status(200).json({
