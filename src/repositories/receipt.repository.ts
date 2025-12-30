@@ -54,6 +54,7 @@ export class ReceiptRepository {
         status: receiptData.status || ReceiptStatus.PENDING,
         createdAt: now,
         updatedAt: now,
+        deletedAt: null,
       };
 
       const receiptRef = this.getDb().collection(this.receiptsCollection).doc(receiptId);
@@ -93,6 +94,11 @@ export class ReceiptRepository {
         throw new AppError('Unauthorized access to receipt', 403);
       }
 
+      // Check if soft deleted
+      if (data.deletedAt) {
+        return null;
+      }
+
       return this.mapDocumentToReceipt(receiptDoc.id, data);
     } catch (error) {
       if (error instanceof AppError) {
@@ -110,7 +116,8 @@ export class ReceiptRepository {
     try {
       let query = this.getDb()
         .collection(this.receiptsCollection)
-        .where('userId', '==', params.userId);
+        .where('userId', '==', params.userId)
+        .where('deletedAt', '==', null); // Exclude soft-deleted receipts
 
       // Apply filters
       if (params.startDate) {
@@ -123,6 +130,10 @@ export class ReceiptRepository {
 
       if (params.category) {
         query = query.where('category', '==', params.category);
+      }
+
+      if (params.merchant) {
+        query = query.where('merchant', '==', params.merchant);
       }
 
       if (params.status) {
@@ -149,11 +160,19 @@ export class ReceiptRepository {
       const countSnapshot = await countQuery.get();
       const total = countSnapshot.data().count;
 
-      // Apply pagination
+      // Cursor-based pagination
       const limit = params.limit || 20;
-      const offset = params.offset || 0;
+      if (params.startAfter) {
+        const startAfterDoc = await this.getDb()
+          .collection(this.receiptsCollection)
+          .doc(params.startAfter)
+          .get();
+        if (startAfterDoc.exists) {
+          query = query.startAfter(startAfterDoc);
+        }
+      }
 
-      query = query.offset(offset).limit(limit);
+      query = query.limit(limit);
 
       const snapshot = await query.get();
       const receipts: Receipt[] = [];
@@ -163,12 +182,28 @@ export class ReceiptRepository {
         receipts.push(this.mapDocumentToReceipt(doc.id, data));
       });
 
+      // Apply search filter if provided (client-side filtering)
+      let filteredReceipts = receipts;
+      if (params.search) {
+        const searchLower = params.search.toLowerCase();
+        filteredReceipts = receipts.filter(
+          (receipt) =>
+            receipt.merchant.toLowerCase().includes(searchLower) ||
+            receipt.tags.some((tag) => tag.toLowerCase().includes(searchLower))
+        );
+      }
+
+      // Determine if there are more results
+      const hasMore = receipts.length === limit;
+      const nextCursor =
+        hasMore && receipts.length > 0 ? receipts[receipts.length - 1].id : undefined;
+
       return {
-        receipts,
+        receipts: filteredReceipts,
         total,
         limit,
-        offset,
-        hasMore: offset + receipts.length < total,
+        hasMore,
+        nextCursor,
       };
     } catch (error) {
       logger.error('Error fetching receipts', { userId: params.userId, error });
@@ -184,14 +219,14 @@ export class ReceiptRepository {
     startDate: Date,
     endDate: Date,
     limit = 20,
-    offset = 0
+    startAfter?: string
   ): Promise<PaginatedReceipts> {
     return this.getReceiptsByUserId({
       userId,
       startDate,
       endDate,
       limit,
-      offset,
+      startAfter,
       sortBy: 'date',
       sortOrder: 'desc',
     });
@@ -204,13 +239,13 @@ export class ReceiptRepository {
     userId: string,
     category: string,
     limit = 20,
-    offset = 0
+    startAfter?: string
   ): Promise<PaginatedReceipts> {
     return this.getReceiptsByUserId({
       userId,
       category,
       limit,
-      offset,
+      startAfter,
       sortBy: 'date',
       sortOrder: 'desc',
     });
@@ -269,7 +304,7 @@ export class ReceiptRepository {
   }
 
   /**
-   * Delete receipt (soft delete by marking as failed or hard delete)
+   * Delete receipt (soft delete with deletedAt timestamp)
    */
   public async deleteReceipt(receiptId: string, userId: string): Promise<void> {
     try {
@@ -290,10 +325,18 @@ export class ReceiptRepository {
         throw new AppError('Unauthorized access to receipt', 403);
       }
 
-      // Hard delete
-      await receiptRef.delete();
+      // Check if already deleted
+      if (data.deletedAt) {
+        throw new AppError('Receipt already deleted', 400);
+      }
 
-      logger.info('Receipt deleted successfully', { receiptId, userId });
+      // Soft delete - set deletedAt timestamp
+      await receiptRef.update({
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      logger.info('Receipt soft deleted successfully', { receiptId, userId });
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -310,13 +353,13 @@ export class ReceiptRepository {
     userId: string,
     tags: string[],
     limit = 20,
-    offset = 0
+    startAfter?: string
   ): Promise<PaginatedReceipts> {
     return this.getReceiptsByUserId({
       userId,
       tags,
       limit,
-      offset,
+      startAfter,
       sortBy: 'date',
       sortOrder: 'desc',
     });
@@ -329,16 +372,103 @@ export class ReceiptRepository {
     userId: string,
     status: ReceiptStatus,
     limit = 20,
-    offset = 0
+    startAfter?: string
   ): Promise<PaginatedReceipts> {
     return this.getReceiptsByUserId({
       userId,
       status,
       limit,
-      offset,
+      startAfter,
       sortBy: 'updatedAt',
       sortOrder: 'desc',
     });
+  }
+
+  /**
+   * Get receipt statistics
+   */
+  public async getReceiptStats(
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+    groupBy?: 'category' | 'month'
+  ): Promise<{
+    totalAmount: number;
+    count: number;
+    byCategory?: Record<string, { amount: number; count: number }>;
+    byPeriod?: Record<string, { amount: number; count: number }>;
+  }> {
+    try {
+      let query = this.getDb()
+        .collection(this.receiptsCollection)
+        .where('userId', '==', userId)
+        .where('deletedAt', '==', null);
+
+      if (startDate) {
+        query = query.where('date', '>=', startDate);
+      }
+
+      if (endDate) {
+        query = query.where('date', '<=', endDate);
+      }
+
+      const snapshot = await query.get();
+
+      let totalAmount = 0;
+      let count = 0;
+      const byCategory: Record<string, { amount: number; count: number }> = {};
+      const byPeriod: Record<string, { amount: number; count: number }> = {};
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        totalAmount += data.total || 0;
+        count++;
+
+        // Group by category
+        if (groupBy === 'category') {
+          const category = data.category || 'Other';
+          if (!byCategory[category]) {
+            byCategory[category] = { amount: 0, count: 0 };
+          }
+          byCategory[category].amount += data.total || 0;
+          byCategory[category].count++;
+        }
+
+        // Group by month
+        if (groupBy === 'month') {
+          const date = this.convertFirestoreDate(data.date);
+          const period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          if (!byPeriod[period]) {
+            byPeriod[period] = { amount: 0, count: 0 };
+          }
+          byPeriod[period].amount += data.total || 0;
+          byPeriod[period].count++;
+        }
+      });
+
+      const result: {
+        totalAmount: number;
+        count: number;
+        byCategory?: Record<string, { amount: number; count: number }>;
+        byPeriod?: Record<string, { amount: number; count: number }>;
+      } = {
+        totalAmount,
+        count,
+      };
+
+      if (groupBy === 'category') {
+        result.byCategory = byCategory;
+      }
+
+      if (groupBy === 'month') {
+        result.byPeriod = byPeriod;
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error fetching receipt stats', { userId, error });
+      throw new AppError('Failed to fetch receipt statistics', 500);
+    }
   }
 
   /**
@@ -360,6 +490,7 @@ export class ReceiptRepository {
       status: data.status,
       createdAt: this.convertFirestoreDate(data.createdAt),
       updatedAt: this.convertFirestoreDate(data.updatedAt),
+      deletedAt: data.deletedAt ? this.convertFirestoreDate(data.deletedAt) : null,
     };
   }
 }

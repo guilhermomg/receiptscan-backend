@@ -70,11 +70,16 @@ export const receiptQuerySchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   category: z.string().optional(),
+  merchant: z.string().optional(),
   status: receiptStatusSchema.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val.split(',').map((t) => t.trim()) : undefined)),
+  search: z.string().optional(),
   limit: z.coerce.number().int().positive().max(100).default(20),
-  offset: z.coerce.number().int().nonnegative().default(0),
-  sortBy: z.enum(['date', 'total', 'createdAt', 'updatedAt']).default('date'),
+  startAfter: z.string().optional(),
+  sortBy: z.enum(['date', 'total', 'merchant', 'createdAt', 'updatedAt']).default('date'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 

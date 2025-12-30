@@ -58,6 +58,7 @@ export interface Receipt {
   status: ReceiptStatus;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date | null; // Soft delete timestamp
 }
 
 /**
@@ -100,21 +101,33 @@ export interface ReceiptQueryParams {
   startDate?: Date;
   endDate?: Date;
   category?: string;
+  merchant?: string;
   status?: ReceiptStatus;
   tags?: string[];
+  search?: string; // Search across merchant and tags
   limit?: number;
-  offset?: number;
-  sortBy?: 'date' | 'total' | 'createdAt' | 'updatedAt';
+  startAfter?: string; // Cursor for pagination (document ID)
+  sortBy?: 'date' | 'total' | 'merchant' | 'createdAt' | 'updatedAt';
   sortOrder?: 'asc' | 'desc';
 }
 
 /**
- * Paginated receipt results
+ * Paginated receipt results with cursor-based pagination
  */
 export interface PaginatedReceipts {
   receipts: Receipt[];
   total: number;
   limit: number;
-  offset: number;
   hasMore: boolean;
+  nextCursor?: string; // Next page cursor (last document ID)
+}
+
+/**
+ * Receipt statistics for aggregation
+ */
+export interface ReceiptStats {
+  totalAmount: number;
+  count: number;
+  byCategory?: Record<string, { amount: number; count: number }>;
+  byPeriod?: Record<string, { amount: number; count: number }>;
 }
