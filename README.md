@@ -219,6 +219,98 @@ Update user profile.
 
 For detailed authentication flow and usage examples, see [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
+### File Upload
+
+All file upload endpoints require authentication.
+
+#### POST /api/v1/receipts/upload
+Upload a receipt file (image or PDF).
+
+**Requirements:**
+- Authentication: Required (Bearer token)
+- Content-Type: `multipart/form-data`
+- Field name: `receipt`
+- Max file size: 10MB
+- Allowed types: images (JPEG, PNG, GIF, WebP, BMP, TIFF) and PDF
+- Rate limit: 10 uploads per minute per user
+
+**Request:**
+```bash
+curl -X POST https://api.receiptscan.ai/api/v1/receipts/upload \
+  -H "Authorization: Bearer <firebase-id-token>" \
+  -F "receipt=@/path/to/receipt.jpg"
+```
+
+**Response (201):**
+```json
+{
+  "status": "success",
+  "message": "File uploaded successfully",
+  "data": {
+    "receiptId": "uuid-v4",
+    "fileName": "receipt.jpg",
+    "filePath": "receipts/user-id/receipt-id/timestamp-filename.jpg",
+    "fileUrl": "https://storage.googleapis.com/bucket/...",
+    "fileSize": 1024000,
+    "mimeType": "image/jpeg",
+    "uploadedAt": "2024-01-01T12:00:00.000Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid file type, size exceeds limit, or no file provided
+- `401 Unauthorized`: Missing or invalid authentication token
+- `429 Too Many Requests`: Rate limit exceeded (10 uploads per minute)
+- `500 Internal Server Error`: Server error during upload
+
+#### DELETE /api/v1/receipts/file
+Delete a receipt file from storage.
+
+**Request Body:**
+```json
+{
+  "filePath": "receipts/user-id/receipt-id/timestamp-filename.jpg"
+}
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "message": "File deleted successfully"
+}
+```
+
+#### POST /api/v1/receipts/file-url
+Generate a new signed URL for an existing file.
+
+**Request Body:**
+```json
+{
+  "filePath": "receipts/user-id/receipt-id/timestamp-filename.jpg"
+}
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "fileUrl": "https://storage.googleapis.com/bucket/...",
+    "expiresIn": "1 hour"
+  }
+}
+```
+
+**File Upload Features:**
+- Automatic file validation (size, type, extension)
+- Secure file storage in Firebase Cloud Storage
+- Signed URLs with 1-hour expiration
+- File naming strategy: `receipts/{userId}/{receiptId}/{timestamp}-{filename}`
+- Rate limiting to prevent abuse
+- Comprehensive error handling
+
 ## 🌍 Environment Variables
 
 | Variable | Description | Default |
@@ -230,6 +322,8 @@ For detailed authentication flow and usage examples, see [docs/AUTHENTICATION.md
 | `FIREBASE_PROJECT_ID` | Firebase project ID | - |
 | `FIREBASE_CLIENT_EMAIL` | Firebase service account email | - |
 | `FIREBASE_PRIVATE_KEY` | Firebase service account private key | - |
+| `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
+| `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
 
 ## 📝 Logging
 
