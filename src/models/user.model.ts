@@ -5,8 +5,19 @@ export enum UserRole {
 
 export enum SubscriptionTier {
   FREE = 'free',
-  PREMIUM = 'premium',
-  ENTERPRISE = 'enterprise',
+  PRO = 'pro',
+  // Future tiers - not yet implemented
+  PREMIUM = 'premium', // Reserved for future use
+  ENTERPRISE = 'enterprise', // Reserved for future use
+}
+
+export enum SubscriptionStatus {
+  ACTIVE = 'active',
+  CANCELED = 'canceled',
+  PAST_DUE = 'past_due',
+  TRIALING = 'trialing',
+  UNPAID = 'unpaid',
+  INCOMPLETE = 'incomplete',
 }
 
 export interface UserProfile {
@@ -15,6 +26,12 @@ export interface UserProfile {
   displayName?: string;
   role: UserRole;
   subscriptionTier: SubscriptionTier;
+  stripeCustomerId?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  currentPeriodEnd?: Date;
+  receiptUsageThisMonth: number;
+  usagePeriodStart: Date;
   createdAt: Date;
   updatedAt: Date;
 }

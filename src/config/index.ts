@@ -24,6 +24,12 @@ interface Config {
     maxTokens: number;
     temperature: number;
   };
+  stripe: {
+    secretKey: string;
+    webhookSecret: string;
+    proPriceId: string;
+  };
+  frontendUrl: string;
 }
 
 const config: Config = {
@@ -43,6 +49,12 @@ const config: Config = {
     maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10),
     temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.1'),
   },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    proPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
+  },
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 };
 
 export default config;

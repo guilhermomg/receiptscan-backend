@@ -15,13 +15,16 @@ export const createApp = (): Application => {
   app.use(helmet());
   app.use(cors());
 
-  // Body parsing middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-
-  // Request ID and logging middleware
+  // Request ID and logging middleware (before body parsing)
   app.use(requestIdMiddleware);
   app.use(requestLogger);
+
+  // Raw body parsing for Stripe webhook (must be before JSON parsing)
+  app.use(`${config.apiPrefix}/billing/webhook`, express.raw({ type: 'application/json' }));
+
+  // Body parsing middleware for all other routes
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   // API routes
   app.use(config.apiPrefix, routes);

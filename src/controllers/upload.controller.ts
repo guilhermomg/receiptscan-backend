@@ -1,6 +1,7 @@
 /// <reference path="../types/express.d.ts" />
 import { Request, Response, NextFunction } from 'express';
 import { UploadService } from '../services/upload.service';
+import { BillingService } from '../services/billing.service';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../config/logger';
 
@@ -10,9 +11,11 @@ import logger from '../config/logger';
  */
 export class UploadController {
   private uploadService: UploadService;
+  private billingService: BillingService;
 
   constructor() {
     this.uploadService = new UploadService();
+    this.billingService = new BillingService();
   }
 
   /**
@@ -40,6 +43,9 @@ export class UploadController {
 
       // Upload file
       const result = await this.uploadService.uploadReceiptFile(req.user.uid, req.file);
+
+      // Increment usage counter for free tier users
+      await this.billingService.incrementReceiptUsage(req.user.uid);
 
       // Return success response
       res.status(201).json({

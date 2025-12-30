@@ -3,6 +3,7 @@ import {
   UserProfile,
   UserRole,
   SubscriptionTier,
+  SubscriptionStatus,
   UpdateUserProfileDto,
 } from '../models/user.model';
 import logger from '../config/logger';
@@ -31,6 +32,12 @@ export class AuthService {
           displayName: data.displayName,
           role: data.role as UserRole,
           subscriptionTier: data.subscriptionTier as SubscriptionTier,
+          stripeCustomerId: data.stripeCustomerId,
+          subscriptionId: data.subscriptionId,
+          subscriptionStatus: data.subscriptionStatus as SubscriptionStatus | undefined,
+          currentPeriodEnd: data.currentPeriodEnd?.toDate(),
+          receiptUsageThisMonth: data.receiptUsageThisMonth ?? 0,
+          usagePeriodStart: data.usagePeriodStart?.toDate() || new Date(),
           createdAt: data.createdAt.toDate(),
           updatedAt: data.updatedAt.toDate(),
         };
@@ -43,6 +50,8 @@ export class AuthService {
         displayName: email.split('@')[0],
         role: UserRole.USER,
         subscriptionTier: SubscriptionTier.FREE,
+        receiptUsageThisMonth: 0,
+        usagePeriodStart: now,
         createdAt: now,
         updatedAt: now,
       };
@@ -80,6 +89,12 @@ export class AuthService {
         displayName: data.displayName,
         role: data.role as UserRole,
         subscriptionTier: data.subscriptionTier as SubscriptionTier,
+        stripeCustomerId: data.stripeCustomerId,
+        subscriptionId: data.subscriptionId,
+        subscriptionStatus: data.subscriptionStatus as SubscriptionStatus | undefined,
+        currentPeriodEnd: data.currentPeriodEnd?.toDate(),
+        receiptUsageThisMonth: data.receiptUsageThisMonth ?? 0,
+        usagePeriodStart: data.usagePeriodStart?.toDate() || new Date(),
         createdAt: data.createdAt.toDate(),
         updatedAt: data.updatedAt.toDate(),
       };
@@ -144,6 +159,8 @@ export class AuthService {
         displayName: displayName || email.split('@')[0],
         role: UserRole.USER,
         subscriptionTier: SubscriptionTier.FREE,
+        receiptUsageThisMonth: 0,
+        usagePeriodStart: now,
         createdAt: now,
         updatedAt: now,
       };

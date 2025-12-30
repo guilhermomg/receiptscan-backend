@@ -71,11 +71,7 @@ export class AnalyticsService {
       const { startDate, endDate } = this.calculateDateRange(options);
 
       // Fetch all receipts in the date range
-      const receipts = await this.fetchReceiptsForAnalytics(
-        options.userId,
-        startDate,
-        endDate
-      );
+      const receipts = await this.fetchReceiptsForAnalytics(options.userId, startDate, endDate);
 
       if (receipts.length === 0) {
         return this.getEmptyAnalytics(startDate, endDate);
@@ -230,9 +226,7 @@ export class AnalyticsService {
   /**
    * Calculate monthly trends
    */
-  private calculateMonthlyTrends(
-    receipts: Array<{ date: Date; total: number }>
-  ): MonthlyTrend[] {
+  private calculateMonthlyTrends(receipts: Array<{ date: Date; total: number }>): MonthlyTrend[] {
     const monthMap = new Map<string, { amount: number; count: number }>();
 
     receipts.forEach((receipt) => {
