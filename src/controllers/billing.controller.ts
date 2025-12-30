@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BillingService } from '../services/billing.service';
 import logger from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
+import { auditLogger, AuditAction } from '../services/audit.service';
 
 export class BillingController {
   private billingService: BillingService;
@@ -28,6 +29,12 @@ export class BillingController {
       });
 
       const checkoutUrl = await this.billingService.createCheckoutSession(uid, email);
+
+      // Audit log
+      await auditLogger.logFromRequest(req, AuditAction.BILLING_CHECKOUT_CREATE, true, {
+        type: 'checkout',
+        id: uid,
+      });
 
       res.status(200).json({
         status: 'success',
@@ -62,6 +69,12 @@ export class BillingController {
       });
 
       const portalUrl = await this.billingService.createPortalSession(uid);
+
+      // Audit log
+      await auditLogger.logFromRequest(req, AuditAction.BILLING_PORTAL_CREATE, true, {
+        type: 'portal',
+        id: uid,
+      });
 
       res.status(200).json({
         status: 'success',

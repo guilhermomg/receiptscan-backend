@@ -4,6 +4,8 @@ import { getAuth } from '../config/firebase';
 import { AppError } from './errorHandler';
 import logger from '../config/logger';
 import { AuthService } from '../services/auth.service';
+import { recordFailedAttempt, resetFailedAttempts } from './abuseDetection';
+import { auditLogger, AuditAction } from '../services/audit.service';
 
 let authService: AuthService | null = null;
 
@@ -19,12 +21,29 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // Log failed authentication attempt
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.SECURITY_INVALID_TOKEN,
+        false,
+        undefined,
+        undefined,
+        'No authorization token provided'
+      );
       throw new AppError('No authorization token provided', 401);
     }
 
     const token = authHeader.split('Bearer ')[1];
 
     if (!token) {
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.SECURITY_INVALID_TOKEN,
+        false,
+        undefined,
+        undefined,
+        'Invalid authorization token format'
+      );
       throw new AppError('Invalid authorization token format', 401);
     }
 
@@ -45,6 +64,9 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
         subscriptionTier: userProfile.subscriptionTier,
       };
 
+      // Reset failed attempts on successful authentication
+      resetFailedAttempts(req);
+
       logger.debug('User authenticated', {
         requestId: req.requestId,
         userId: req.user.uid,
@@ -57,6 +79,20 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
         requestId: req.requestId,
         error,
       });
+
+      // Record failed attempt
+      recordFailedAttempt(req, 'invalid_token');
+
+      // Log to audit
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.SECURITY_INVALID_TOKEN,
+        false,
+        undefined,
+        { error: error instanceof Error ? error.message : 'Unknown error' },
+        'Invalid or expired token'
+      );
+
       throw new AppError('Invalid or expired token', 401);
     }
   } catch (error) {

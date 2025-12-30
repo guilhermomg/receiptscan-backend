@@ -5,6 +5,12 @@ declare global {
     interface Request {
       requestId?: string;
       user?: AuthenticatedUser;
+      apiKey?: {
+        id: string;
+        userId: string;
+        scopes: string[];
+        name: string;
+      };
     }
   }
 }

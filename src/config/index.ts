@@ -30,6 +30,8 @@ interface Config {
     proPriceId: string;
   };
   frontendUrl: string;
+  corsOrigins: string;
+  maxRequestSize: string;
 }
 
 const config: Config = {
@@ -55,6 +57,8 @@ const config: Config = {
     proPriceId: process.env.STRIPE_PRO_PRICE_ID || '',
   },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
+  corsOrigins: process.env.CORS_ORIGINS || 'http://localhost:3001,http://localhost:3000',
+  maxRequestSize: process.env.MAX_REQUEST_SIZE || '10mb',
 };
 
 export default config;

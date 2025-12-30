@@ -4,6 +4,7 @@ import { AuthService } from '../services/auth.service';
 import { AppError } from '../middleware/errorHandler';
 import { UpdateUserProfileDto } from '../models/user.model';
 import logger from '../config/logger';
+import { auditLogger, AuditAction } from '../services/audit.service';
 
 export class AuthController {
   private authService: AuthService;
@@ -29,6 +30,12 @@ export class AuthController {
       logger.info('User registered', {
         requestId: req.requestId,
         userId: userProfile.userId,
+      });
+
+      // Audit log
+      await auditLogger.logFromRequest(req, AuditAction.AUTH_REGISTER, true, {
+        type: 'user',
+        id: userProfile.userId,
       });
 
       res.status(201).json({
@@ -92,6 +99,15 @@ export class AuthController {
         requestId: req.requestId,
         userId: updatedProfile.userId,
       });
+
+      // Audit log
+      await auditLogger.logFromRequest(
+        req,
+        AuditAction.AUTH_PROFILE_UPDATE,
+        true,
+        { type: 'user', id: updatedProfile.userId },
+        { updates: Object.keys(updates) }
+      );
 
       res.status(200).json({
         status: 'success',
