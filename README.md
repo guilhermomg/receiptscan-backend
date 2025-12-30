@@ -5,6 +5,9 @@ AI-powered receipt scanning and expense tracking API for receiptscan.ai
 ## 🚀 Features
 
 - RESTful API built with Express.js and TypeScript
+- **Firebase Authentication with JWT token verification**
+- **Role-Based Access Control (RBAC) for admin/user roles**
+- **Subscription tier management for billing integration**
 - Structured logging with Winston (includes request IDs)
 - Environment-based configuration
 - Security middleware (Helmet, CORS)
@@ -17,6 +20,8 @@ AI-powered receipt scanning and expense tracking API for receiptscan.ai
 
 - Node.js >= 18.x
 - npm >= 9.x
+- **Firebase project with Admin SDK credentials**
+- **Firestore database enabled**
 
 ## 🛠️ Installation
 
@@ -38,6 +43,19 @@ cp .env.example .env.development
 
 # Edit .env.development with your configuration
 ```
+
+4. Set up Firebase credentials:
+   - Go to [Firebase Console](https://console.firebase.google.com/)
+   - Select your project
+   - Go to Project Settings → Service Accounts
+   - Generate a new private key
+   - Add the credentials to your `.env.development` file:
+     ```env
+     FIREBASE_PROJECT_ID=your-project-id
+     FIREBASE_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
+     FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
+     ```
+   - **Note:** Replace `\n` with `\\n` in the private key for environment files
 
 ## 🏃 Running the Application
 
@@ -114,6 +132,93 @@ receiptscan-backend/
   }
   ```
 
+### Authentication
+
+All authentication endpoints require a valid Firebase ID token in the Authorization header:
+```
+Authorization: Bearer <firebase-id-token>
+```
+
+#### POST /api/v1/auth/register
+Register a new user profile.
+
+**Request Body:**
+```json
+{
+  "displayName": "John Doe"  // optional
+}
+```
+
+**Response (201):**
+```json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "userId": "firebase-uid",
+      "email": "user@example.com",
+      "displayName": "John Doe",
+      "role": "user",
+      "subscriptionTier": "free",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+#### GET /api/v1/auth/me
+Get current user profile.
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "userId": "firebase-uid",
+      "email": "user@example.com",
+      "displayName": "John Doe",
+      "role": "user",
+      "subscriptionTier": "free",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+#### PATCH /api/v1/auth/profile
+Update user profile.
+
+**Request Body:**
+```json
+{
+  "displayName": "Jane Doe",
+  "subscriptionTier": "premium"
+}
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "userId": "firebase-uid",
+      "email": "user@example.com",
+      "displayName": "Jane Doe",
+      "role": "user",
+      "subscriptionTier": "premium",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T12:00:00.000Z"
+    }
+  }
+}
+```
+
+For detailed authentication flow and usage examples, see [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+
 ## 🌍 Environment Variables
 
 | Variable | Description | Default |
@@ -122,6 +227,9 @@ receiptscan-backend/
 | `PORT` | Server port | 3000 |
 | `LOG_LEVEL` | Logging level (debug/info/warn/error) | info |
 | `API_PREFIX` | API route prefix | /api/v1 |
+| `FIREBASE_PROJECT_ID` | Firebase project ID | - |
+| `FIREBASE_CLIENT_EMAIL` | Firebase service account email | - |
+| `FIREBASE_PRIVATE_KEY` | Firebase service account private key | - |
 
 ## 📝 Logging
 
