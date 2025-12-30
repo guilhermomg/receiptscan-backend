@@ -18,9 +18,18 @@ import type { DocumentData } from 'firebase-admin/firestore';
 
 export class ReceiptRepository {
   private receiptsCollection = 'receipts';
+  private readonly MAX_TAGS_FILTER = 10;
 
   private getDb() {
     return getFirestore();
+  }
+
+  /**
+   * Helper method to convert Firestore timestamp to Date
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private convertFirestoreDate(date: any): Date {
+    return date?.toDate ? date.toDate() : new Date(date);
   }
 
   /**
@@ -123,7 +132,11 @@ export class ReceiptRepository {
       if (params.tags && params.tags.length > 0) {
         // Firestore supports array-contains but only for single value
         // For multiple tags, we'll filter in memory after fetching
-        query = query.where('tags', 'array-contains-any', params.tags.slice(0, 10));
+        query = query.where(
+          'tags',
+          'array-contains-any',
+          params.tags.slice(0, this.MAX_TAGS_FILTER)
+        );
       }
 
       // Apply sorting
@@ -336,7 +349,7 @@ export class ReceiptRepository {
       id,
       userId: data.userId,
       merchant: data.merchant,
-      date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+      date: this.convertFirestoreDate(data.date),
       total: data.total,
       tax: data.tax,
       currency: data.currency,
@@ -345,8 +358,8 @@ export class ReceiptRepository {
       lineItems: data.lineItems || [],
       imageUrl: data.imageUrl,
       status: data.status,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
+      createdAt: this.convertFirestoreDate(data.createdAt),
+      updatedAt: this.convertFirestoreDate(data.updatedAt),
     };
   }
 }
