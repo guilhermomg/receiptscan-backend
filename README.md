@@ -311,6 +311,107 @@ Generate a new signed URL for an existing file.
 - Rate limiting to prevent abuse
 - Comprehensive error handling
 
+### Receipt Parsing
+
+All receipt parsing endpoints require authentication.
+
+#### POST /api/v1/receipts/parse
+Parse receipt data from an image URL using AI (OpenAI GPT-4 Vision).
+
+**Requirements:**
+- Authentication: Required (Bearer token)
+- Content-Type: `application/json`
+- Rate limit: 10 requests per minute per user
+
+**Request Body:**
+```json
+{
+  "imageUrl": "https://storage.googleapis.com/bucket/receipts/...",
+  "receiptId": "uuid-v4" // optional - if updating existing receipt
+}
+```
+
+**Request Example:**
+```bash
+curl -X POST https://api.receiptscan.ai/api/v1/receipts/parse \
+  -H "Authorization: Bearer <firebase-id-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "imageUrl": "https://storage.googleapis.com/bucket/receipts/user-id/receipt-id/receipt.jpg"
+  }'
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Receipt parsed successfully",
+  "data": {
+    "parsed": {
+      "merchant": "Whole Foods Market",
+      "merchantConfidence": 0.95,
+      "merchantConfidenceLevel": "high",
+      "date": "2024-01-15T00:00:00.000Z",
+      "dateConfidence": 0.92,
+      "dateConfidenceLevel": "high",
+      "total": 127.45,
+      "totalConfidence": 0.98,
+      "totalConfidenceLevel": "high",
+      "tax": 11.25,
+      "taxConfidence": 0.88,
+      "taxConfidenceLevel": "high",
+      "currency": "USD",
+      "currencyConfidence": 0.99,
+      "currencyConfidenceLevel": "high",
+      "category": "Food & Dining",
+      "categoryConfidence": 0.85,
+      "categoryConfidenceLevel": "high",
+      "lineItems": [
+        {
+          "description": "Organic Bananas",
+          "quantity": 2,
+          "unitPrice": 0.79,
+          "total": 1.58,
+          "confidence": 0.75
+        },
+        {
+          "description": "Greek Yogurt",
+          "quantity": 1,
+          "unitPrice": 5.99,
+          "total": 5.99,
+          "confidence": 0.75
+        }
+      ],
+      "overallConfidence": 0.92
+    },
+    "metadata": {
+      "source": "openai",
+      "processingTime": 2345,
+      "fallbackUsed": false
+    }
+  }
+}
+```
+
+**Confidence Levels:**
+- `high` - Confidence > 0.8 (Highly accurate)
+- `medium` - Confidence 0.5-0.8 (May need review)
+- `low` - Confidence < 0.5 (Should be verified)
+
+**Error Responses:**
+- `400 Bad Request`: Invalid image URL or missing required fields
+- `401 Unauthorized`: Missing or invalid authentication token
+- `429 Too Many Requests`: Rate limit exceeded (10 requests per minute)
+- `500 Internal Server Error`: Parsing failed or OpenAI service unavailable
+
+**Parsing Features:**
+- AI-powered data extraction using OpenAI GPT-4 Vision
+- Extracts merchant, date, total, tax, currency, category, and line items
+- Confidence scoring for all extracted fields
+- Retry logic for transient failures
+- Detailed error messages for troubleshooting
+- Processing time tracking
+
 ## 🌍 Environment Variables
 
 | Variable | Description | Default |
@@ -323,6 +424,10 @@ Generate a new signed URL for an existing file.
 | `FIREBASE_CLIENT_EMAIL` | Firebase service account email | - |
 | `FIREBASE_PRIVATE_KEY` | Firebase service account private key | - |
 | `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
+| `OPENAI_API_KEY` | OpenAI API key for receipt parsing | - |
+| `OPENAI_MODEL` | OpenAI model to use | gpt-4o |
+| `OPENAI_MAX_TOKENS` | Maximum tokens for OpenAI response | 2000 |
+| `OPENAI_TEMPERATURE` | Temperature for AI responses (0-1) | 0.1 |
 
 ## 📝 Logging
 

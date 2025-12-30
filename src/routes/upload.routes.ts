@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { UploadController } from '../controllers/upload.controller';
+import { ReceiptParsingController } from '../controllers/receiptParsing.controller';
 import { authMiddleware } from '../middleware/auth';
 import { uploadSingleFile } from '../middleware/upload';
 import { uploadRateLimiter } from '../middleware/rateLimiter';
@@ -7,6 +8,7 @@ import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
 const uploadController = new UploadController();
+const parsingController = new ReceiptParsingController();
 
 /**
  * Multer error handler middleware
@@ -61,5 +63,15 @@ router.delete('/file', authMiddleware, uploadRateLimiter, uploadController.delet
  * Rate limit: 10 requests per minute per user
  */
 router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.generateFileUrl);
+
+/**
+ * POST /api/v1/receipts/parse
+ * Parse receipt from image URL using AI
+ * Required: Authentication
+ * Body: { imageUrl: string, receiptId?: string }
+ * Returns: Structured receipt data with confidence scores
+ * Rate limit: 10 requests per minute per user
+ */
+router.post('/parse', authMiddleware, uploadRateLimiter, parsingController.parseReceipt);
 
 export default router;

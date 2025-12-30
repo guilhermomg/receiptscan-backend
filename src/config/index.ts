@@ -18,6 +18,12 @@ interface Config {
     privateKey: string;
     storageBucket: string;
   };
+  openai: {
+    apiKey: string;
+    model: string;
+    maxTokens: number;
+    temperature: number;
+  };
 }
 
 const config: Config = {
@@ -30,6 +36,12 @@ const config: Config = {
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || '',
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
+  },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: process.env.OPENAI_MODEL || 'gpt-4o',
+    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10),
+    temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.1'),
   },
 };
 
