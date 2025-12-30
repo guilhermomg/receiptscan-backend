@@ -5,6 +5,16 @@ import { SubscriptionTier, SubscriptionStatus, UserProfile } from '../models/use
 import logger from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
 
+/**
+ * Extended Stripe Subscription type with period fields
+ * Note: The Stripe SDK types don't include current_period_* fields in the TypeScript definitions,
+ * but these fields are present in the actual API responses.
+ */
+interface StripeSubscriptionWithPeriods extends Stripe.Subscription {
+  current_period_start?: number;
+  current_period_end?: number;
+}
+
 export class BillingService {
   private stripe: Stripe;
   private usersCollection = 'users';
@@ -164,12 +174,13 @@ export class BillingService {
 
       const userData = userDoc.data() as UserProfile;
 
+      // Handle Firestore Timestamp conversion
       const currentPeriodEnd = userData.currentPeriodEnd;
       const currentPeriodEndDate =
         currentPeriodEnd instanceof Date
           ? currentPeriodEnd
           : currentPeriodEnd && typeof currentPeriodEnd === 'object' && 'toDate' in currentPeriodEnd
-            ? (currentPeriodEnd as any).toDate()
+            ? (currentPeriodEnd as { toDate: () => Date }).toDate()
             : undefined;
 
       return {
@@ -258,7 +269,9 @@ export class BillingService {
       const customerId = session.customer as string;
 
       // Get subscription details
-      const subscription = (await this.stripe.subscriptions.retrieve(subscriptionId)) as any;
+      const subscription = (await this.stripe.subscriptions.retrieve(
+        subscriptionId
+      )) as StripeSubscriptionWithPeriods;
 
       // Update user profile
       const userRef = this.getDb().collection(this.usersCollection).doc(userId);
@@ -307,7 +320,7 @@ export class BillingService {
         tier = SubscriptionTier.PRO;
       }
 
-      const subscriptionAny = subscription as any;
+      const subscriptionWithPeriods = subscription as StripeSubscriptionWithPeriods;
 
       // Update user profile
       await userDoc.ref.update({
@@ -315,7 +328,7 @@ export class BillingService {
         subscriptionTier: tier,
         subscriptionStatus: subscription.status as SubscriptionStatus,
         currentPeriodEnd: new Date(
-          (subscriptionAny.current_period_end || subscriptionAny.billing_cycle_anchor) * 1000
+          (subscriptionWithPeriods.current_period_end || subscription.billing_cycle_anchor) * 1000
         ),
         updatedAt: new Date(),
       });
@@ -365,7 +378,8 @@ export class BillingService {
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     try {
       const customerId = invoice.customer as string;
-      const subscriptionId = (invoice as any).subscription as string;
+      // The invoice.subscription field exists at runtime but may not be in type definitions
+      const subscriptionId = (invoice as { subscription?: string }).subscription;
 
       if (!subscriptionId) {
         return;
@@ -383,7 +397,9 @@ export class BillingService {
       const userDoc = querySnapshot.docs[0];
 
       // Get subscription details
-      const subscription = (await this.stripe.subscriptions.retrieve(subscriptionId)) as any;
+      const subscription = (await this.stripe.subscriptions.retrieve(
+        subscriptionId
+      )) as StripeSubscriptionWithPeriods;
 
       // Reset usage for new billing period
       await userDoc.ref.update({
