@@ -10,6 +10,13 @@ AI-powered receipt scanning and expense tracking API for receiptscan.ai
 - **Stripe subscription billing with tiered pricing (Free/Pro)**
 - **Usage tracking and limit enforcement**
 - **Subscription tier management for billing integration**
+- **Comprehensive security hardening:**
+  - Request sanitization and input validation
+  - Rate limiting per endpoint and IP-based abuse detection
+  - Enhanced security headers (CSP, HSTS, X-Frame-Options)
+  - CORS configuration with allowed origins
+  - Audit logging for sensitive operations
+  - API key authentication support
 - Structured logging with Winston (includes request IDs)
 - Environment-based configuration
 - Security middleware (Helmet, CORS)
@@ -802,14 +809,20 @@ Get spending analytics and insights.
 | `PORT` | Server port | 3000 |
 | `LOG_LEVEL` | Logging level (debug/info/warn/error) | info |
 | `API_PREFIX` | API route prefix | /api/v1 |
+| **Security Configuration** | | |
+| `CORS_ORIGINS` | Comma-separated list of allowed CORS origins | http://localhost:3001,http://localhost:3000 |
+| `MAX_REQUEST_SIZE` | Maximum request body size (prevents payload attacks) | 10mb |
+| **Firebase Configuration** | | |
 | `FIREBASE_PROJECT_ID` | Firebase project ID | - |
 | `FIREBASE_CLIENT_EMAIL` | Firebase service account email | - |
 | `FIREBASE_PRIVATE_KEY` | Firebase service account private key | - |
 | `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
+| **OpenAI Configuration** | | |
 | `OPENAI_API_KEY` | OpenAI API key for receipt parsing | - |
 | `OPENAI_MODEL` | OpenAI model to use | gpt-4o |
 | `OPENAI_MAX_TOKENS` | Maximum tokens for OpenAI response | 2000 |
 | `OPENAI_TEMPERATURE` | Temperature for AI responses (0-1) | 0.1 |
+| **Stripe Configuration** | | |
 | `STRIPE_SECRET_KEY` | Stripe secret key for billing | - |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | - |
 | `STRIPE_PRO_PRICE_ID` | Stripe Price ID for Pro subscription | - |
@@ -950,6 +963,177 @@ const validatedData = createReceiptSchema.parse(requestData);
 
 // Validate update data
 const validatedUpdates = updateReceiptSchema.parse(requestData);
+```
+
+## 🔒 Security
+
+The API implements comprehensive security hardening to protect against common attacks and abuse.
+
+### Security Headers
+
+All API responses include the following security headers via Helmet.js:
+
+- **Content-Security-Policy (CSP)**: Prevents XSS attacks by controlling which resources can be loaded
+- **HTTP Strict Transport Security (HSTS)**: Forces HTTPS connections for 1 year
+- **X-Frame-Options**: Set to `DENY` to prevent clickjacking attacks
+- **X-Content-Type-Options**: Set to `nosniff` to prevent MIME type sniffing
+- **X-XSS-Protection**: Enables browser XSS protection
+- **Referrer-Policy**: Set to `strict-origin-when-cross-origin` for privacy
+
+### CORS Configuration
+
+CORS is configured to only allow requests from trusted origins:
+
+```env
+CORS_ORIGINS=http://localhost:3001,https://receiptscan.ai
+```
+
+The CORS configuration includes:
+- Explicit origin validation
+- Credentials support
+- Exposed rate limit headers
+- 10-minute preflight cache
+
+### Rate Limiting
+
+Different rate limits are applied per endpoint type:
+
+| Endpoint Type | Rate Limit | Window | Key |
+|--------------|------------|--------|-----|
+| **General API** | 100 requests | 1 minute | IP address |
+| **Uploads** | 10 requests | 1 minute | User ID or IP |
+| **Exports** | 5 requests | 1 hour | User ID or IP |
+| **Billing** | 10 requests | 1 minute | User ID or IP |
+
+Rate limit information is returned in response headers:
+- `RateLimit-Limit`: Maximum requests allowed
+- `RateLimit-Remaining`: Requests remaining in window
+- `RateLimit-Reset`: Unix timestamp when limit resets
+
+### IP-Based Abuse Detection
+
+The API tracks failed authentication attempts and automatically blocks IPs that exceed thresholds:
+
+- **Threshold**: 10 failed attempts within 15 minutes
+- **Block Duration**: Starts at 15 minutes, increases exponentially with repeated violations (max 24 hours)
+- **Tracking Window**: 15 minutes
+- **Auto-cleanup**: Old entries are automatically removed
+
+Blocked IPs receive a `403 Forbidden` response with a clear message.
+
+### Input Validation & Sanitization
+
+All requests are sanitized to prevent injection attacks:
+
+- **SQL Injection**: Removes SQL keywords and dangerous characters
+- **NoSQL Injection**: Strips MongoDB operators like `$where`, `$ne`
+- **XSS Prevention**: Removes script tags and event handlers
+- **Command Injection**: Blocks shell metacharacters
+- **Prototype Pollution**: Rejects `__proto__`, `constructor`, `prototype` keys
+
+Validation is performed on:
+- Request body
+- Query parameters
+- URL parameters
+
+### Request Size Limits
+
+To prevent payload attacks, request body sizes are limited:
+
+```env
+MAX_REQUEST_SIZE=10mb
+```
+
+Applies to:
+- JSON payloads
+- URL-encoded data
+- Multipart form data (file uploads)
+
+### Audit Logging
+
+All sensitive operations are logged to a dedicated Firestore collection (`auditLogs`) for compliance and security monitoring:
+
+**Logged Operations:**
+- User registration and profile updates
+- Receipt creation and deletion
+- Export generation
+- Billing operations (checkout, portal)
+- Security events (rate limits, invalid tokens, blocked IPs)
+
+**Audit Log Fields:**
+```typescript
+{
+  timestamp: Date,
+  action: string,           // e.g., 'receipt.create'
+  userId: string,
+  userEmail: string,
+  ip: string,
+  userAgent: string,
+  requestId: string,
+  resource: {
+    type: string,           // e.g., 'receipt'
+    id: string
+  },
+  metadata: object,
+  success: boolean,
+  errorMessage?: string
+}
+```
+
+### API Key Authentication
+
+The API supports API key authentication in addition to Firebase Auth tokens for future API product offerings:
+
+**Using API Keys:**
+```bash
+curl -X GET https://api.receiptscan.ai/api/v1/receipts \
+  -H "X-API-Key: rsk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**API Key Features:**
+- Cryptographically secure key generation
+- SHA-256 hashed storage
+- Scope-based permissions
+- Expiration support
+- Usage tracking (last used timestamp)
+- Rate limiting per key
+
+**Key Format:** `rsk_[live|test]_[48-character-hex]`
+
+### Authentication Security
+
+**Token Verification:**
+- Firebase ID tokens are verified on every authenticated request
+- Invalid or expired tokens are rejected with `401 Unauthorized`
+- Failed authentication attempts are tracked for abuse detection
+
+**User Context:**
+- Authenticated requests include user ID, email, role, and subscription tier
+- Authorization checks ensure users can only access their own resources
+
+### Best Practices
+
+When deploying to production:
+
+1. **Environment Variables**: Use strong, unique values for all secrets
+2. **CORS Origins**: Restrict to only your production domains
+3. **HTTPS Only**: Enable HSTS and serve all traffic over HTTPS
+4. **Firestore Security Rules**: Configure strict rules (see Firebase console)
+5. **Monitoring**: Set up alerts for security events in audit logs
+6. **Regular Updates**: Keep dependencies updated for security patches
+
+### Security Response Headers Example
+
+```http
+Content-Security-Policy: default-src 'self'; script-src 'self'
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+RateLimit-Limit: 100
+RateLimit-Remaining: 99
+RateLimit-Reset: 1704067200
 ```
 
 ## 🧪 Code Quality
