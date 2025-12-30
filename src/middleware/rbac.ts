@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import { Request, Response, NextFunction } from 'express';
 import { UserRole, SubscriptionTier } from '../models/user.model';
 import { AppError } from './errorHandler';

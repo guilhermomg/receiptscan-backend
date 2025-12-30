@@ -9,12 +9,15 @@ import logger from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
 
 export class AuthService {
-  private db = getFirestore();
   private usersCollection = 'users';
+
+  private getDb() {
+    return getFirestore();
+  }
 
   public async getOrCreateUserProfile(userId: string, email: string): Promise<UserProfile> {
     try {
-      const userRef = this.db.collection(this.usersCollection).doc(userId);
+      const userRef = this.getDb().collection(this.usersCollection).doc(userId);
       const userDoc = await userRef.get();
 
       if (userDoc.exists) {
@@ -60,7 +63,7 @@ export class AuthService {
 
   public async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
-      const userRef = this.db.collection(this.usersCollection).doc(userId);
+      const userRef = this.getDb().collection(this.usersCollection).doc(userId);
       const userDoc = await userRef.get();
 
       if (!userDoc.exists) {
@@ -88,7 +91,7 @@ export class AuthService {
     updates: UpdateUserProfileDto
   ): Promise<UserProfile> {
     try {
-      const userRef = this.db.collection(this.usersCollection).doc(userId);
+      const userRef = this.getDb().collection(this.usersCollection).doc(userId);
       const userDoc = await userRef.get();
 
       if (!userDoc.exists) {
@@ -141,7 +144,7 @@ export class AuthService {
         updatedAt: new Date(),
       };
 
-      const userRef = this.db.collection(this.usersCollection).doc(userId);
+      const userRef = this.getDb().collection(this.usersCollection).doc(userId);
       await userRef.set({
         ...newProfile,
         createdAt: new Date(),

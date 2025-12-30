@@ -1,10 +1,18 @@
+/// <reference path="../types/express.d.ts" />
 import { Request, Response, NextFunction } from 'express';
 import { getAuth } from '../config/firebase';
 import { AppError } from './errorHandler';
 import logger from '../config/logger';
 import { AuthService } from '../services/auth.service';
 
-const authService = new AuthService();
+let authService: AuthService | null = null;
+
+const getAuthService = () => {
+  if (!authService) {
+    authService = new AuthService();
+  }
+  return authService;
+};
 
 export const authMiddleware = async (req: Request, _res: Response, next: NextFunction) => {
   try {
@@ -24,7 +32,7 @@ export const authMiddleware = async (req: Request, _res: Response, next: NextFun
       const decodedToken = await getAuth().verifyIdToken(token);
 
       // Get or create user profile
-      const userProfile = await authService.getOrCreateUserProfile(
+      const userProfile = await getAuthService().getOrCreateUserProfile(
         decodedToken.uid,
         decodedToken.email || ''
       );
@@ -73,7 +81,7 @@ export const optionalAuthMiddleware = async (req: Request, _res: Response, next:
     try {
       const decodedToken = await getAuth().verifyIdToken(token);
 
-      const userProfile = await authService.getOrCreateUserProfile(
+      const userProfile = await getAuthService().getOrCreateUserProfile(
         decodedToken.uid,
         decodedToken.email || ''
       );
