@@ -125,8 +125,13 @@ export const createApp = (): Application => {
   app.use(express.json({ limit: config.maxRequestSize }));
   app.use(express.urlencoded({ extended: true, limit: config.maxRequestSize }));
 
-  // Request sanitization to prevent injection attacks
-  app.use(sanitizeRequest);
+  // Request sanitization to prevent injection attacks (skip for /docs and /health)
+  app.use((req, res, next) => {
+    if (req.path.startsWith(`${config.apiPrefix}/docs`) || req.path === `${config.apiPrefix}/health`) {
+      return next();
+    }
+    sanitizeRequest(req, res, next);
+  });
 
   // API routes
   app.use(config.apiPrefix, routes);
