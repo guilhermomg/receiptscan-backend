@@ -1,0 +1,49 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+
+# IDE
+.vscode
+.idea
+
+# Build artifacts
+dist
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Firebase
+.firebase
+firebase-debug.log
+firebase-debug.*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.bak
+*.swp

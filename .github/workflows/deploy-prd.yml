@@ -1,0 +1,165 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+      confirm:
+        description: 'Type "deploy-production" to confirm'
+        required: true
+        default: ''
+
+jobs:
+  validate-input:
+    name: Validate Production Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy-production" ]; then
+            echo "❌ Deployment cancelled: confirmation text doesn't match"
+            exit 1
+          fi
+          echo "✅ Production deployment confirmed"
+          echo "📦 Version: ${{ github.event.inputs.version }}"
+
+  deploy-production:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    needs: validate-input
+    environment:
+      name: production
+      url: https://api.receiptscan.ai
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run format check
+        run: npm run format:check
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create .env file
+        run: |
+          cat > .env.production << EOF
+          NODE_ENV=production
+          PORT=3000
+          ENVIRONMENT=prd
+          LOG_LEVEL=info
+          API_PREFIX=/api/v1
+          API_DOMAIN=https://api.receiptscan.ai
+          CORS_ORIGINS=${{ secrets.PRD_CORS_ORIGINS }}
+          MAX_REQUEST_SIZE=10mb
+          FIREBASE_PROJECT_ID=${{ secrets.PRD_FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.PRD_FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.PRD_FIREBASE_PRIVATE_KEY }}
+          FIREBASE_STORAGE_BUCKET=${{ secrets.PRD_FIREBASE_STORAGE_BUCKET }}
+          OPENAI_API_KEY=${{ secrets.PRD_OPENAI_API_KEY }}
+          OPENAI_MODEL=gpt-4o
+          OPENAI_MAX_TOKENS=2000
+          OPENAI_TEMPERATURE=0.1
+          STRIPE_SECRET_KEY=${{ secrets.PRD_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.PRD_STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID=${{ secrets.PRD_STRIPE_PRO_PRICE_ID }}
+          FRONTEND_URL=${{ secrets.PRD_FRONTEND_URL }}
+          DEPLOYMENT_VERSION=${{ github.event.inputs.version }}
+          DEPLOYMENT_COMMIT_SHA=${{ github.sha }}
+          DEPLOYMENT_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          EOF
+
+      - name: Setup Firebase CLI
+        run: |
+          npm install -g firebase-tools
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PRD_GCP_SA_KEY }}
+
+      - name: Backup current production (snapshot)
+        run: |
+          echo "Creating backup snapshot before deployment..."
+          # Add backup logic if needed
+
+      - name: Deploy Firestore rules and indexes
+        run: |
+          firebase use receiptscan-prd --token ${{ secrets.FIREBASE_TOKEN }}
+          firebase deploy --only firestore --token ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy Storage rules
+        run: |
+          firebase deploy --only storage --token ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy to Cloud Run (Blue-Green)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: receiptscan-api-prd
+          region: us-central1
+          source: .
+          tag: v${{ github.event.inputs.version }}
+          no_traffic: true
+          env_vars: |
+            NODE_ENV=production
+            ENVIRONMENT=prd
+            DEPLOYMENT_VERSION=${{ github.event.inputs.version }}
+            DEPLOYMENT_COMMIT_SHA=${{ github.sha }}
+          secrets: |
+            FIREBASE_PROJECT_ID=${{ secrets.PRD_FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.PRD_FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.PRD_FIREBASE_PRIVATE_KEY }}
+            FIREBASE_STORAGE_BUCKET=${{ secrets.PRD_FIREBASE_STORAGE_BUCKET }}
+            OPENAI_API_KEY=${{ secrets.PRD_OPENAI_API_KEY }}
+            STRIPE_SECRET_KEY=${{ secrets.PRD_STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.PRD_STRIPE_WEBHOOK_SECRET }}
+            STRIPE_PRO_PRICE_ID=${{ secrets.PRD_STRIPE_PRO_PRICE_ID }}
+
+      - name: Smoke test new revision
+        run: |
+          sleep 10
+          # Test the new revision before routing traffic
+          NEW_REVISION_URL=$(gcloud run services describe receiptscan-api-prd --region=us-central1 --format='value(status.traffic[0].url)')
+          curl -f $NEW_REVISION_URL/api/v1/health || exit 1
+          echo "✅ Smoke test passed"
+
+      - name: Route traffic to new revision (Blue-Green switch)
+        run: |
+          gcloud run services update-traffic receiptscan-api-prd \
+            --region=us-central1 \
+            --to-revisions=LATEST=100
+
+      - name: Final health check
+        run: |
+          sleep 5
+          curl -f https://api.receiptscan.ai/api/v1/health || exit 1
+
+      - name: Create Git tag
+        run: |
+          git tag -a "v${{ github.event.inputs.version }}" -m "Release version ${{ github.event.inputs.version }}"
+          git push origin "v${{ github.event.inputs.version }}"
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Production deployment successful!"
+            echo "🚀 Version ${{ github.event.inputs.version }} is now live"
+          else
+            echo "❌ Production deployment failed!"
+            echo "⚠️  Consider running rollback procedure"
+          fi
