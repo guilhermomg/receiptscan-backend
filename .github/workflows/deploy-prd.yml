@@ -1,0 +1,150 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version/Tag to deploy (e.g., v1.0.0)'
+        required: true
+        default: ''
+      confirm:
+        description: 'Type "deploy-production" to confirm'
+        required: true
+        default: ''
+
+jobs:
+  validate:
+    name: Validate Deployment Request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy-production" ]; then
+            echo "❌ Deployment not confirmed. Please type 'deploy-production' to confirm."
+            exit 1
+          fi
+      
+      - name: Check version format
+        run: |
+          if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format. Expected format: v1.0.0"
+            exit 1
+          fi
+  
+  deploy-blue:
+    name: Deploy to Blue Environment (Staging)
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: production-blue
+      url: https://api-blue.receiptscan.ai
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Setup environment variables
+        run: |
+          echo "NODE_ENV=production" >> .env.prd
+          echo "FIREBASE_PROJECT_ID=receiptscan-prd" >> .env.prd
+          echo "FIREBASE_REGION=us-central1" >> .env.prd
+          echo "API_BASE_URL=https://api.receiptscan.ai" >> .env.prd
+          echo "API_PORT=5001" >> .env.prd
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY_PRD }}" >> .env.prd
+          echo "STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY_PRD }}" >> .env.prd
+          echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PRD }}" >> .env.prd
+          echo "FIRESTORE_DATABASE_ID=(default)" >> .env.prd
+          echo "STORAGE_BUCKET=receiptscan-prd.appspot.com" >> .env.prd
+          echo "ENABLE_MONITORING=true" >> .env.prd
+          echo "LOG_LEVEL=warn" >> .env.prd
+          echo "CORS_ORIGINS=https://receiptscan.ai,https://www.receiptscan.ai" >> .env.prd
+      
+      - name: Deploy to Firebase (Blue)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRD }}
+          projectId: receiptscan-prd
+          channelId: blue
+      
+      - name: Run health check on Blue
+        run: |
+          sleep 10
+          curl -f https://api-blue.receiptscan.ai/health
+      
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests on blue environment..."
+          # Add smoke test commands here
+          curl -f https://api-blue.receiptscan.ai/
+          curl -f https://api-blue.receiptscan.ai/readiness
+  
+  approve-production:
+    name: Approve Production Deployment
+    needs: deploy-blue
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Manual approval checkpoint
+        run: echo "Waiting for manual approval to switch traffic to blue environment..."
+  
+  switch-to-blue:
+    name: Switch Production Traffic to Blue
+    needs: approve-production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.receiptscan.ai
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Switch traffic to Blue
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PRD }}
+          projectId: receiptscan-prd
+          channelId: live
+      
+      - name: Verify production health
+        run: |
+          sleep 10
+          curl -f https://api.receiptscan.ai/health
+      
+      - name: Tag deployment
+        run: |
+          echo "✅ Production deployment completed: ${{ github.event.inputs.version }}"
+          echo "Blue environment is now live"
+      
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🎉 Production deployment successful!"
+          echo "Version: ${{ github.event.inputs.version }}"
+          echo "URL: https://api.receiptscan.ai"
+      
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+          echo "Please check logs and consider rollback"

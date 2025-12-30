@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "dev": "receiptscan-dev",
+    "test": "receiptscan-test",
+    "prd": "receiptscan-prd",
+    "default": "receiptscan-dev"
+  }
+}

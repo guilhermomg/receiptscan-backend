@@ -1,0 +1,86 @@
+name: Deploy to Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm deployment to test'
+        required: true
+        default: ''
+
+jobs:
+  validate:
+    name: Validate Deployment Request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Deployment not confirmed. Please type 'deploy' to confirm."
+            exit 1
+          fi
+  
+  deploy-test:
+    name: Deploy to Test Environment
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: test
+      url: https://api-test.receiptscan.ai
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+      
+      - name: Build TypeScript
+        run: npm run build
+      
+      - name: Setup environment variables
+        run: |
+          echo "NODE_ENV=test" >> .env.test
+          echo "FIREBASE_PROJECT_ID=receiptscan-test" >> .env.test
+          echo "FIREBASE_REGION=us-central1" >> .env.test
+          echo "API_BASE_URL=https://api-test.receiptscan.ai" >> .env.test
+          echo "API_PORT=5001" >> .env.test
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY_TEST }}" >> .env.test
+          echo "STRIPE_API_KEY=${{ secrets.STRIPE_API_KEY_TEST }}" >> .env.test
+          echo "STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}" >> .env.test
+          echo "FIRESTORE_DATABASE_ID=(default)" >> .env.test
+          echo "STORAGE_BUCKET=receiptscan-test.appspot.com" >> .env.test
+          echo "ENABLE_MONITORING=true" >> .env.test
+          echo "LOG_LEVEL=info" >> .env.test
+          echo "CORS_ORIGINS=https://test.receiptscan.ai" >> .env.test
+      
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TEST }}
+          projectId: receiptscan-test
+          channelId: live
+      
+      - name: Run health check
+        run: |
+          sleep 10
+          curl -f https://api-test.receiptscan.ai/health || echo "Health check endpoint not yet available"
+      
+      - name: Notify deployment
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment to test successful"
+          else
+            echo "❌ Deployment to test failed"
+          fi
