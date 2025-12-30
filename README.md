@@ -138,11 +138,17 @@ receiptscan-backend/
 | `npm run build` | Build TypeScript to JavaScript |
 | `npm run start` | Start production server |
 | `npm run start:dev` | Start in development mode |
+| `npm run start:test` | Start in test mode |
 | `npm run start:prod` | Start in production mode |
 | `npm run lint` | Run ESLint |
 | `npm run lint:fix` | Fix ESLint errors |
 | `npm run format` | Format code with Prettier |
 | `npm run format:check` | Check code formatting |
+| `npm run deploy:dev` | Deploy to development environment |
+| `npm run deploy:test` | Deploy to test environment |
+| `npm run deploy:prd` | Deploy to production environment |
+| `npm run seed:dev` | Seed development database with test data |
+| `npm run seed:test` | Seed test database with test data |
 
 ## 🔍 API Endpoints
 
@@ -1135,10 +1141,126 @@ X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
 X-XSS-Protection: 1; mode=block
 Referrer-Policy: strict-origin-when-cross-origin
+```
 RateLimit-Limit: 100
 RateLimit-Remaining: 99
 RateLimit-Reset: 1704067200
 ```
+
+## 🚀 Deployment
+
+The receiptscan-backend supports multi-environment deployment to development, test, and production environments.
+
+### Environments
+
+| Environment | Purpose | Domain | Auto-Deploy |
+|------------|---------|---------|-------------|
+| **Development** | Active development & testing | api-dev.receiptscan.ai | ✅ Yes (on push to main) |
+| **Test** | Pre-production testing | api-test.receiptscan.ai | ⚠️ Manual trigger |
+| **Production** | Live production | api.receiptscan.ai | ⚠️ Manual approval required |
+
+### Quick Start
+
+#### Local Deployment Scripts
+
+```bash
+# Deploy to development
+npm run deploy:dev
+
+# Deploy to test
+npm run deploy:test
+
+# Deploy to production (requires confirmation)
+npm run deploy:prd
+```
+
+#### CI/CD Pipeline
+
+The repository includes GitHub Actions workflows for automated deployment:
+
+- **Development**: Automatically deploys on push to `main` branch
+- **Test**: Manual workflow trigger with confirmation
+- **Production**: Manual workflow trigger with version number and confirmation
+
+### Infrastructure
+
+- **Hosting**: Google Cloud Run
+- **Database**: Firebase Firestore (separate projects per environment)
+- **Storage**: Firebase Cloud Storage (separate buckets per environment)
+- **Authentication**: Firebase Authentication
+- **Deployment**: Docker containers with blue-green strategy for production
+
+### Environment Configuration
+
+Each environment has its own configuration:
+
+```bash
+.env.development  # Development environment
+.env.test         # Test environment  
+.env.production   # Production environment
+```
+
+Key environment variables:
+- `ENVIRONMENT`: Environment identifier (dev/test/prd)
+- `FIREBASE_PROJECT_ID`: Firebase project ID
+- `OPENAI_API_KEY`: OpenAI API key (separate per environment)
+- `STRIPE_SECRET_KEY`: Stripe key (test vs live)
+- `DEPLOYMENT_VERSION`: Version number (set by CI/CD)
+- `DEPLOYMENT_COMMIT_SHA`: Git commit SHA (set by CI/CD)
+
+### Health Check
+
+Verify deployment success:
+
+```bash
+# Development
+curl https://api-dev.receiptscan.ai/api/v1/health
+
+# Test
+curl https://api-test.receiptscan.ai/api/v1/health
+
+# Production
+curl https://api.receiptscan.ai/api/v1/health
+```
+
+Response includes:
+- Environment identifier
+- Deployment version and commit SHA
+- Service configuration status (Firebase, OpenAI, Stripe)
+- Server uptime
+
+### Documentation
+
+For detailed deployment instructions:
+- **[Deployment Guide](docs/DEPLOYMENT.md)**: Complete setup and deployment instructions
+- **[Rollback Procedures](docs/ROLLBACK.md)**: Emergency rollback and recovery procedures
+
+### Database Seeding
+
+Seed test data for development and test environments:
+
+```bash
+# Seed development database
+npm run seed:dev
+
+# Seed test database
+npm run seed:test
+```
+
+**Note**: Production seeding is disabled to prevent accidental data modification.
+
+### Monitoring
+
+- **Firebase Console**: Monitor Firestore and Storage usage
+- **Cloud Run Console**: View logs, metrics, and service status
+- **Health Endpoint**: Automated health checks in CI/CD pipeline
+
+### Security
+
+- **Secrets Management**: All sensitive credentials stored in GitHub Secrets
+- **Environment Isolation**: Separate Firebase projects, API keys, and storage buckets
+- **Blue-Green Deployment**: Zero-downtime deployments for production
+- **Automated Rollback**: Quick rollback capability in case of issues
 
 ## 🧪 Code Quality
 
