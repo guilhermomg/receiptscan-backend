@@ -849,18 +849,166 @@ The application uses Winston for structured logging with the following features:
 
 ## 🏗️ Architecture
 
-The project follows a layered architecture pattern:
+The project follows a **layered architecture pattern** for clear separation of concerns and maintainability.
 
-1. **Controllers**: Handle HTTP requests and responses
-2. **Services**: Contain business logic
-3. **Repositories**: Handle data persistence operations
-4. **Models**: Define data structures
-5. **Middleware**: Process requests before reaching controllers
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Application                    │
+│                   (Web/Mobile Frontend)                      │
+└─────────────────────────────────────────────────────────────┘
+                              ↓ HTTPS
+┌─────────────────────────────────────────────────────────────┐
+│                     API Gateway / Load Balancer              │
+│                        (Google Cloud Run)                    │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Express.js Application                    │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               Middleware Layer                         │  │
+│  │  • Authentication (Firebase JWT)                       │  │
+│  │  • Rate Limiting                                       │  │
+│  │  • Request Sanitization                                │  │
+│  │  • Security Headers (Helmet)                           │  │
+│  │  • CORS                                                │  │
+│  │  • Logging (Winston)                                   │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              ↓                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               Controller Layer                         │  │
+│  │  • Request/Response handling                           │  │
+│  │  • Input validation (Zod)                              │  │
+│  │  • Route definitions                                   │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              ↓                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               Service Layer                            │  │
+│  │  • Business logic                                      │  │
+│  │  • Data transformation                                 │  │
+│  │  • External API integration                            │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              ↓                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │               Repository Layer                         │  │
+│  │  • Database operations                                 │  │
+│  │  • Query construction                                  │  │
+│  │  • Data mapping                                        │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────┬──────────────────┬──────────────────────┐
+│   Firebase       │    OpenAI API    │    Stripe API        │
+│   • Firestore    │    • GPT-4o      │    • Payments        │
+│   • Auth         │    • Vision      │    • Subscriptions   │
+│   • Storage      │                  │    • Webhooks        │
+└──────────────────┴──────────────────┴──────────────────────┘
+```
+
+### Layer Responsibilities
+
+#### 1. **Controllers** (`src/controllers/`)
+- Handle HTTP requests and responses
+- Validate request data using Zod schemas
+- Call appropriate services
+- Format API responses
+- **Example**: `receipt.controller.ts`, `auth.controller.ts`
+
+#### 2. **Services** (`src/services/`)
+- Contain business logic
+- Orchestrate complex operations
+- Call repositories for data access
+- Integrate with external APIs (OpenAI, Stripe)
+- **Example**: `receipt.service.ts`, `openai.service.ts`
+
+#### 3. **Repositories** (`src/repositories/`)
+- Handle database operations
+- Abstract Firestore implementation
+- Provide clean data access interface
+- **Example**: `receipt.repository.ts`
+
+#### 4. **Models** (`src/models/`)
+- Define TypeScript interfaces and types
+- Zod validation schemas
+- Data transfer objects (DTOs)
+- **Example**: `receipt.model.ts`, `receipt.validation.ts`
+
+#### 5. **Middleware** (`src/middleware/`)
+- Authentication and authorization
+- Rate limiting
+- Request sanitization
+- Logging and error handling
+- **Example**: `auth.ts`, `rateLimiter.ts`
+
+### Key Design Principles
+
+- **Separation of Concerns**: Each layer has a single, well-defined responsibility
+- **Dependency Injection**: Services receive dependencies (repositories, config)
+- **Interface Segregation**: Small, focused interfaces
+- **Don't Repeat Yourself (DRY)**: Shared utilities and helpers
+- **Fail Fast**: Validate input early, throw errors explicitly
+
+### Data Flow Example
+
+```typescript
+// 1. Request arrives at Controller
+POST /api/v1/receipts
+→ receiptController.createReceipt()
+
+// 2. Controller validates input
+→ createReceiptSchema.parse(req.body)
+
+// 3. Controller calls Service
+→ receiptService.create(userId, validatedData)
+
+// 4. Service applies business logic
+→ validates user limits, prepares data
+
+// 5. Service calls Repository
+→ receiptRepository.createReceipt(userId, receiptData)
+
+// 6. Repository interacts with Database
+→ db.collection('receipts').add(data)
+
+// 7. Response flows back up
+→ Receipt → Service → Controller → HTTP Response
+```
+
+### Architecture Decision Records
+
+For detailed rationale behind key technical decisions, see:
+- [ADR-001: Use TypeScript](docs/adr/001-use-typescript.md)
+- [ADR-002: Layered Architecture](docs/adr/002-layered-architecture.md)
+- [ADR-003: Firebase Backend](docs/adr/003-firebase-backend.md)
+- [ADR-004: OpenAI for Receipt Parsing](docs/adr/004-openai-receipt-parsing.md)
+- [ADR-005: Zod Validation](docs/adr/005-zod-validation.md)
+
+See all ADRs in [docs/adr/](docs/adr/README.md).
+
+### Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Runtime** | Node.js 18+ | JavaScript runtime |
+| **Language** | TypeScript | Type-safe development |
+| **Framework** | Express.js 5 | Web framework |
+| **Database** | Firestore | NoSQL document database |
+| **Storage** | Cloud Storage | File storage for receipts |
+| **Authentication** | Firebase Auth | User authentication |
+| **AI** | OpenAI GPT-4 Vision | Receipt parsing |
+| **Payments** | Stripe | Subscription billing |
+| **Validation** | Zod | Runtime type checking |
+| **Testing** | Jest | Testing framework |
+| **Logging** | Winston | Structured logging |
+| **Security** | Helmet | Security headers |
+| **Deployment** | Cloud Run | Container orchestration |
 
 This separation ensures:
 - Clear separation of concerns
 - Easy testing and maintenance
 - Scalable codebase
+- Flexibility to swap implementations
 
 ## 📦 Data Models
 
@@ -1262,6 +1410,89 @@ npm run seed:test
 - **Blue-Green Deployment**: Zero-downtime deployments for production
 - **Automated Rollback**: Quick rollback capability in case of issues
 
+## 🧪 Testing
+
+### Test Framework
+
+The project uses **Jest** with TypeScript support for comprehensive testing:
+
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test complete user flows
+- **Mocking**: External services (Firebase, OpenAI, Stripe) are mocked
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (auto-rerun on file changes)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests in CI mode
+npm run test:ci
+```
+
+### Test Coverage
+
+The project maintains **>70% test coverage** for core business logic:
+
+| Component | Coverage Target | Status |
+|-----------|----------------|--------|
+| **Models** | 100% | ✅ 100% |
+| **Validation Schemas** | 100% | ✅ 100% |
+| **Services** | 70%+ | 🎯 Target |
+| **Controllers** | 70%+ | 🎯 Target |
+
+### Test Results
+
+```
+Test Suites: 5 passed, 5 total
+Tests:       76 passed, 76 total
+Snapshots:   0 total
+Time:        6.289 s
+```
+
+### Test Structure
+
+```
+src/
+├── __tests__/
+│   ├── setup.ts              # Jest configuration
+│   ├── mocks/                # Mock implementations
+│   │   ├── firebase.mock.ts  # Firebase Admin SDK mocks
+│   │   ├── openai.mock.ts    # OpenAI SDK mocks
+│   │   └── stripe.mock.ts    # Stripe SDK mocks
+│   └── unit/                 # Unit tests
+│       ├── receipt.model.test.ts
+│       ├── receipt.validation.test.ts
+│       ├── parsedReceipt.model.test.ts
+│       ├── parsedReceipt.validation.test.ts
+│       └── user.model.test.ts
+```
+
+### Continuous Integration
+
+Tests run automatically on every Pull Request and push to the `main` branch via GitHub Actions:
+
+- ✅ Linting checks
+- ✅ Code formatting verification
+- ✅ TypeScript compilation
+- ✅ Test suite execution
+- ✅ Coverage reporting
+- ❌ **PR fails if tests fail**
+
+See [`.github/workflows/test.yml`](.github/workflows/test.yml) for the complete CI configuration.
+
+### Documentation
+
+For comprehensive testing documentation, see:
+- **[Testing Guide](docs/TESTING.md)**: Complete guide to testing practices
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)**: Common testing issues and solutions
+
 ## 🧪 Code Quality
 
 ### Linting
@@ -1278,11 +1509,37 @@ npm run format:check
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please follow these steps:
+
+1. **Read the guidelines**: Check [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines
+2. **Fork the repository**
+3. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+4. **Make your changes**:
+   - Write or update tests
+   - Follow code style standards
+   - Ensure all tests pass: `npm test`
+   - Run linter: `npm run lint:fix`
+5. **Commit your changes**: Follow [commit message guidelines](docs/CONTRIBUTING.md#commit-message-guidelines)
+6. **Push to your branch**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request**
+
+### Key Resources for Contributors
+
+- **[Contributing Guidelines](docs/CONTRIBUTING.md)**: Code style, PR process, best practices
+- **[Testing Guide](docs/TESTING.md)**: How to write and run tests
+- **[Architecture Decision Records](docs/adr/README.md)**: Technical decisions and rationale
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**: Solutions to common issues
+
+### Code Style Standards
+
+- **TypeScript**: Use strict typing, avoid `any`
+- **Architecture**: Follow layered architecture (Controller → Service → Repository)
+- **Validation**: Use Zod for all input validation
+- **Documentation**: Add JSDoc comments for public APIs
+- **Testing**: Write tests for new features (>70% coverage required)
+- **Security**: Never commit secrets, validate all inputs
+
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for complete guidelines.
 
 ## 📄 License
 
