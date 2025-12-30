@@ -48,6 +48,17 @@ Copy the example environment file and configure for your environment:
 cp .env.example .env.dev
 ```
 
+**IMPORTANT SECURITY NOTE**: 
+The `.env.dev`, `.env.test`, and `.env.prd` files in this repository are **template files with empty API keys**. These files are committed to the repository to provide a consistent structure but **do not contain any actual secrets**.
+
+For local development:
+- Copy one of these files and add your actual API keys
+- Keep your local secrets file separate (e.g., `.env.local`)
+
+For CI/CD deployment:
+- Actual secrets are injected via GitHub Secrets during deployment
+- Never commit files with real API keys to the repository
+
 Edit `.env.dev` and add your API keys:
 - `OPENAI_API_KEY`: Your OpenAI API key
 - `STRIPE_API_KEY`: Your Stripe API key

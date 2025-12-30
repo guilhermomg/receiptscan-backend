@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
-import * as express from 'express';
-import * as cors from 'cors';
+import express, { Request, Response } from 'express';
+import cors from 'cors';
 import config from './config';
 import { healthCheck, readinessCheck } from './controllers/health.controller';
 
@@ -21,7 +21,7 @@ app.get('/health', healthCheck);
 app.get('/readiness', readinessCheck);
 
 // Root endpoint
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'ReceiptScan API',
     environment: config.nodeEnv,
