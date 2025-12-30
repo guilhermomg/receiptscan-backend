@@ -545,6 +545,126 @@ Get receipt statistics with optional grouping.
 }
 ```
 
+#### GET /api/v1/receipts/export
+
+Export receipts in CSV or PDF format.
+
+**Query Parameters:**
+- `format` (required) - Export format: `csv` or `pdf`
+- `startDate` (optional) - Start date for filtering (ISO 8601)
+- `endDate` (optional) - End date for filtering (ISO 8601)
+- `category` (optional) - Filter by category
+- `merchant` (optional) - Filter by merchant
+- `tags` (optional) - Comma-separated tags to filter
+
+**Rate Limit:** 5 exports per hour per user
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Export generated successfully",
+  "data": {
+    "downloadUrl": "https://storage.googleapis.com/...",
+    "fileName": "receipts-export-1234567890.csv",
+    "fileSize": 2048,
+    "recordCount": 25,
+    "expiresIn": "24 hours"
+  }
+}
+```
+
+**CSV Format:**
+- Columns: Date, Merchant, Amount, Tax, Currency, Category, Tags, Status, Line Items
+- Comma-separated values with headers
+- UTF-8 encoding
+
+**PDF Format:**
+- Professional formatted report with summary section
+- Complete receipts list with details
+- Totals and statistics
+- Pagination with page numbers
+
+#### GET /api/v1/receipts/analytics
+
+Get spending analytics and insights.
+
+**Query Parameters:**
+- `period` (optional) - Time period: `this_month`, `last_month`, `ytd`, `custom` (default: `this_month`)
+- `startDate` (required for custom) - Start date for custom period (ISO 8601)
+- `endDate` (required for custom) - End date for custom period (ISO 8601)
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "analytics": {
+      "summary": {
+        "totalAmount": 5234.56,
+        "totalReceipts": 42,
+        "avgAmount": 124.63,
+        "period": {
+          "start": "2024-12-01T00:00:00.000Z",
+          "end": "2024-12-31T23:59:59.000Z"
+        }
+      },
+      "byCategory": [
+        {
+          "category": "Food & Dining",
+          "amount": 2100.00,
+          "count": 25,
+          "percentage": 40.1
+        },
+        {
+          "category": "Transportation",
+          "amount": 850.00,
+          "count": 8,
+          "percentage": 16.2
+        }
+      ],
+      "monthlyTrends": [
+        {
+          "month": "2024-11",
+          "amount": 4120.00,
+          "count": 35
+        },
+        {
+          "month": "2024-12",
+          "amount": 5234.56,
+          "count": 42
+        }
+      ],
+      "topMerchants": [
+        {
+          "merchant": "Whole Foods Market",
+          "amount": 850.00,
+          "count": 12,
+          "avgAmount": 70.83
+        },
+        {
+          "merchant": "Shell Gas Station",
+          "amount": 450.00,
+          "count": 6,
+          "avgAmount": 75.00
+        }
+      ]
+    }
+  }
+}
+```
+
+**Export & Analytics Features:**
+- CSV and PDF export in multiple formats
+- Date range filtering for targeted exports
+- Signed URLs with 24-hour expiration for security
+- Comprehensive spending analytics with multiple dimensions
+- Category breakdown with percentages
+- Monthly spending trends over time
+- Top merchants by total spending
+- Rate limiting to prevent abuse (5 exports per hour)
+- Efficient pagination for large datasets
+
 **Receipt CRUD Features:**
 - Full CRUD operations with proper authorization
 - Cursor-based pagination for efficient scrolling
