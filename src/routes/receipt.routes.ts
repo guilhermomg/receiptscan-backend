@@ -4,11 +4,43 @@
 
 import { Router } from 'express';
 import { ReceiptController } from '../controllers/receipt.controller';
+import { ExportController } from '../controllers/export.controller';
+import { AnalyticsController } from '../controllers/analytics.controller';
 import { authMiddleware } from '../middleware/auth';
-import { uploadRateLimiter } from '../middleware/rateLimiter';
+import { uploadRateLimiter, exportRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 const receiptController = new ReceiptController();
+const exportController = new ExportController();
+const analyticsController = new AnalyticsController();
+
+/**
+ * GET /api/v1/receipts/export
+ * Export receipts in CSV or PDF format
+ * Required: Authentication
+ * Query params:
+ * - format: 'csv' | 'pdf' (required) - Export format
+ * - startDate: Date (optional) - Filter by start date
+ * - endDate: Date (optional) - Filter by end date
+ * - category: string (optional) - Filter by category
+ * - merchant: string (optional) - Filter by merchant
+ * - tags: string (optional) - Comma-separated tags to filter
+ * Rate limit: 5 exports per hour per user
+ * Returns: Download URL for the generated file (expires in 24 hours)
+ */
+router.get('/export', authMiddleware, exportRateLimiter, exportController.exportReceipts);
+
+/**
+ * GET /api/v1/receipts/analytics
+ * Get spending analytics and insights
+ * Required: Authentication
+ * Query params:
+ * - period: 'this_month' | 'last_month' | 'ytd' | 'custom' (default: 'this_month')
+ * - startDate: Date (required for custom period) - Start date for custom period
+ * - endDate: Date (required for custom period) - End date for custom period
+ * Returns: Analytics data with summary, category breakdown, monthly trends, and top merchants
+ */
+router.get('/analytics', authMiddleware, analyticsController.getAnalytics);
 
 /**
  * GET /api/v1/receipts/stats

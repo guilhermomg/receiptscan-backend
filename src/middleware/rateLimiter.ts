@@ -23,3 +23,25 @@ export const uploadRateLimiter = rateLimit({
     return req.path.includes('/health');
   },
 });
+
+/**
+ * Rate limiter for export endpoints
+ * Limits to 5 exports per hour per user
+ */
+export const exportRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Limit each user to 5 requests per hour
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: (req: Request) => {
+    // Use user ID if authenticated, otherwise use IP address
+    return req.user?.uid || req.ip || 'anonymous';
+  },
+  handler: (_req, _res, _next) => {
+    throw new AppError('Too many export requests. Please try again later.', 429);
+  },
+  skip: (req: Request) => {
+    // Skip rate limiting for health checks
+    return req.path.includes('/health');
+  },
+});
