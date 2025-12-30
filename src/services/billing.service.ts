@@ -368,7 +368,7 @@ export class BillingService {
       // Downgrade to free tier
       await userDoc.ref.update({
         subscriptionTier: SubscriptionTier.FREE,
-        subscriptionStatus: 'canceled',
+        subscriptionStatus: SubscriptionStatus.CANCELED,
         receiptUsageThisMonth: 0,
         usagePeriodStart: new Date(),
         updatedAt: new Date(),
@@ -448,7 +448,7 @@ export class BillingService {
 
       // Update subscription status
       await userDoc.ref.update({
-        subscriptionStatus: 'past_due',
+        subscriptionStatus: SubscriptionStatus.PAST_DUE,
         updatedAt: new Date(),
       });
 

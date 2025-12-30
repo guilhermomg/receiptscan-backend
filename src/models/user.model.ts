@@ -6,8 +6,9 @@ export enum UserRole {
 export enum SubscriptionTier {
   FREE = 'free',
   PRO = 'pro',
-  PREMIUM = 'premium',
-  ENTERPRISE = 'enterprise',
+  // Future tiers - not yet implemented
+  PREMIUM = 'premium', // Reserved for future use
+  ENTERPRISE = 'enterprise', // Reserved for future use
 }
 
 export enum SubscriptionStatus {
