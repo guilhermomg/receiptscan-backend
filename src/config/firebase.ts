@@ -1,4 +1,5 @@
 import admin from 'firebase-admin';
+import { Storage } from '@google-cloud/storage';
 import config from './index';
 import logger from './logger';
 
@@ -22,6 +23,7 @@ export const initializeFirebase = (): void => {
         clientEmail: config.firebase.clientEmail,
         privateKey: config.firebase.privateKey,
       }),
+      storageBucket: config.firebase.storageBucket,
     });
 
     firebaseInitialized = true;
@@ -44,6 +46,19 @@ export const getFirestore = () => {
     throw new Error('Firebase not initialized. Call initializeFirebase() first.');
   }
   return admin.firestore();
+};
+
+export const getStorage = (): Storage => {
+  if (!firebaseInitialized) {
+    throw new Error('Firebase not initialized. Call initializeFirebase() first.');
+  }
+  return new Storage({
+    projectId: config.firebase.projectId,
+    credentials: {
+      client_email: config.firebase.clientEmail,
+      private_key: config.firebase.privateKey,
+    },
+  });
 };
 
 export default admin;
