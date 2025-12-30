@@ -1,0 +1,118 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-dev:
+    name: Deploy to Development Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://api-dev.receiptscan.ai
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run format check
+        run: npm run format:check
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create .env file
+        run: |
+          cat > .env.development << EOF
+          NODE_ENV=development
+          PORT=3000
+          ENVIRONMENT=dev
+          LOG_LEVEL=debug
+          API_PREFIX=/api/v1
+          API_DOMAIN=https://api-dev.receiptscan.ai
+          CORS_ORIGINS=${{ secrets.DEV_CORS_ORIGINS }}
+          MAX_REQUEST_SIZE=10mb
+          FIREBASE_PROJECT_ID=${{ secrets.DEV_FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.DEV_FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.DEV_FIREBASE_PRIVATE_KEY }}
+          FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_FIREBASE_STORAGE_BUCKET }}
+          OPENAI_API_KEY=${{ secrets.DEV_OPENAI_API_KEY }}
+          OPENAI_MODEL=gpt-4o
+          OPENAI_MAX_TOKENS=2000
+          OPENAI_TEMPERATURE=0.1
+          STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.DEV_STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID=${{ secrets.DEV_STRIPE_PRO_PRICE_ID }}
+          FRONTEND_URL=${{ secrets.DEV_FRONTEND_URL }}
+          DEPLOYMENT_VERSION=${{ github.run_number }}
+          DEPLOYMENT_COMMIT_SHA=${{ github.sha }}
+          DEPLOYMENT_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          EOF
+
+      - name: Setup Firebase CLI
+        run: |
+          npm install -g firebase-tools
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_SA_KEY }}
+
+      - name: Deploy Firestore rules and indexes
+        run: |
+          firebase use receiptscan-dev --token ${{ secrets.FIREBASE_TOKEN }}
+          firebase deploy --only firestore --token ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy Storage rules
+        run: |
+          firebase deploy --only storage --token ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: receiptscan-api-dev
+          region: us-central1
+          source: .
+          env_vars: |
+            NODE_ENV=development
+            ENVIRONMENT=dev
+            DEPLOYMENT_VERSION=${{ github.run_number }}
+            DEPLOYMENT_COMMIT_SHA=${{ github.sha }}
+          secrets: |
+            FIREBASE_PROJECT_ID=${{ secrets.DEV_FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.DEV_FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.DEV_FIREBASE_PRIVATE_KEY }}
+            FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_FIREBASE_STORAGE_BUCKET }}
+            OPENAI_API_KEY=${{ secrets.DEV_OPENAI_API_KEY }}
+            STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.DEV_STRIPE_WEBHOOK_SECRET }}
+            STRIPE_PRO_PRICE_ID=${{ secrets.DEV_STRIPE_PRO_PRICE_ID }}
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f https://api-dev.receiptscan.ai/api/v1/health || exit 1
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment to development successful!"
+          else
+            echo "❌ Deployment to development failed!"
+          fi

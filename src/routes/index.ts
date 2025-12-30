@@ -16,7 +16,7 @@ const healthController = new HealthController();
  *     tags:
  *       - Health
  *     summary: Health check endpoint
- *     description: Returns the health status of the API
+ *     description: Returns the health status of the API with environment information
  *     responses:
  *       200:
  *         description: API is healthy
@@ -37,10 +37,32 @@ const healthController = new HealthController();
  *                   example: 123.456
  *                 environment:
  *                   type: string
- *                   example: development
+ *                   example: dev
+ *                   description: Current deployment environment (dev/test/prd)
  *                 version:
  *                   type: string
  *                   example: 1.0.0
+ *                 deployment:
+ *                   type: object
+ *                   properties:
+ *                     commitSha:
+ *                       type: string
+ *                       example: abc123def456
+ *                     deployedAt:
+ *                       type: string
+ *                       format: date-time
+ *                 services:
+ *                   type: object
+ *                   properties:
+ *                     firebase:
+ *                       type: string
+ *                       example: configured
+ *                     openai:
+ *                       type: string
+ *                       example: configured
+ *                     stripe:
+ *                       type: string
+ *                       example: configured
  */
 router.get('/health', healthController.getHealth);
 router.use('/docs', docsRoutes);

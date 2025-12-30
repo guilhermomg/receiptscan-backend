@@ -8,12 +8,18 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:dev": "NODE_ENV=development npm run dev",
+    "start:test": "NODE_ENV=test npm run start",
     "start:prod": "NODE_ENV=production npm run start",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy:dev": "./scripts/deploy.sh dev",
+    "deploy:test": "./scripts/deploy.sh test",
+    "deploy:prd": "./scripts/deploy.sh prd",
+    "seed:dev": "./scripts/seed-database.sh dev",
+    "seed:test": "./scripts/seed-database.sh test"
   },
   "keywords": [
     "receipt",

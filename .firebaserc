@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "dev": "receiptscan-dev",
+    "test": "receiptscan-test",
+    "prd": "receiptscan-prd"
+  },
+  "targets": {},
+  "etags": {}
+}
