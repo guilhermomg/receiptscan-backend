@@ -34,6 +34,7 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-namespace': 'off',
+      '@typescript-eslint/triple-slash-reference': 'off',
     },
   },
 ];

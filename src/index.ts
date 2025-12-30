@@ -1,7 +1,11 @@
 import { createApp, startServer } from './app';
+import { initializeFirebase } from './config/firebase';
 import logger from './config/logger';
 
 try {
+  // Initialize Firebase
+  initializeFirebase();
+
   const app = createApp();
   startServer(app);
 } catch (error) {
