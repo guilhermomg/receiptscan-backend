@@ -22,32 +22,32 @@ export class AuthService {
 
       if (userDoc.exists) {
         const data = userDoc.data();
+        if (!data) {
+          throw new AppError('User profile data is invalid', 500);
+        }
         return {
           userId: userDoc.id,
-          email: data!.email,
-          displayName: data!.displayName,
-          role: data!.role as UserRole,
-          subscriptionTier: data!.subscriptionTier as SubscriptionTier,
-          createdAt: data!.createdAt.toDate(),
-          updatedAt: data!.updatedAt.toDate(),
+          email: data.email,
+          displayName: data.displayName,
+          role: data.role as UserRole,
+          subscriptionTier: data.subscriptionTier as SubscriptionTier,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
         };
       }
 
       // Create new user profile
+      const now = new Date();
       const newProfile: Omit<UserProfile, 'userId'> = {
         email,
         displayName: email.split('@')[0],
         role: UserRole.USER,
         subscriptionTier: SubscriptionTier.FREE,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       };
 
-      await userRef.set({
-        ...newProfile,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await userRef.set(newProfile);
 
       logger.info('New user profile created', { userId, email });
 
@@ -71,14 +71,17 @@ export class AuthService {
       }
 
       const data = userDoc.data();
+      if (!data) {
+        throw new AppError('User profile data is invalid', 500);
+      }
       return {
         userId: userDoc.id,
-        email: data!.email,
-        displayName: data!.displayName,
-        role: data!.role as UserRole,
-        subscriptionTier: data!.subscriptionTier as SubscriptionTier,
-        createdAt: data!.createdAt.toDate(),
-        updatedAt: data!.updatedAt.toDate(),
+        email: data.email,
+        displayName: data.displayName,
+        role: data.role as UserRole,
+        subscriptionTier: data.subscriptionTier as SubscriptionTier,
+        createdAt: data.createdAt.toDate(),
+        updatedAt: data.updatedAt.toDate(),
       };
     } catch (error) {
       logger.error('Error fetching user profile', { userId, error });
@@ -135,21 +138,18 @@ export class AuthService {
       }
 
       // Create new user profile
+      const now = new Date();
       const newProfile: Omit<UserProfile, 'userId'> = {
         email,
         displayName: displayName || email.split('@')[0],
         role: UserRole.USER,
         subscriptionTier: SubscriptionTier.FREE,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       };
 
       const userRef = this.getDb().collection(this.usersCollection).doc(userId);
-      await userRef.set({
-        ...newProfile,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      await userRef.set(newProfile);
 
       logger.info('User registered successfully', { userId, email });
 
