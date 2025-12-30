@@ -152,13 +152,13 @@ export class OpenAIService {
     }
   ],
   "confidence": {
-    "merchant": 0.95,
-    "date": 0.90,
-    "total": 0.98,
-    "tax": 0.85,
-    "currency": 0.99,
-    "category": 0.80,
-    "items": 0.75
+    "merchant": "confidence score between 0 and 1",
+    "date": "confidence score between 0 and 1",
+    "total": "confidence score between 0 and 1",
+    "tax": "confidence score between 0 and 1",
+    "currency": "confidence score between 0 and 1",
+    "category": "confidence score between 0 and 1",
+    "items": "confidence score between 0 and 1"
   }
 }
 
@@ -210,11 +210,13 @@ Requirements:
         'CHF',
         'CNY',
       ];
+      const currency = validCurrencies.includes(data.currency) ? data.currency : 'USD';
+      const currencyConfidence = validCurrencies.includes(data.currency)
+        ? data.confidence?.currency || 0.9
+        : 0.5;
+
       if (!validCurrencies.includes(data.currency)) {
         logger.warn('Invalid currency in response, defaulting to USD', { currency: data.currency });
-        data.currency = 'USD';
-        data.confidence = data.confidence || {};
-        data.confidence.currency = 0.5;
       }
 
       // Extract confidence scores
@@ -223,7 +225,6 @@ Requirements:
       const dateConf = confidence.date || 0.8;
       const totalConf = confidence.total || 0.9;
       const taxConf = confidence.tax || 0.7;
-      const currencyConf = confidence.currency || 0.9;
       const categoryConf = confidence.category || 0.7;
       const itemsConf = confidence.items || 0.6;
 
@@ -246,7 +247,7 @@ Requirements:
       );
 
       // Calculate overall confidence
-      const confidenceScores = [merchantConf, dateConf, totalConf, currencyConf];
+      const confidenceScores = [merchantConf, dateConf, totalConf, currencyConfidence];
       if (data.tax !== undefined) confidenceScores.push(taxConf);
       if (data.category) confidenceScores.push(categoryConf);
       if (lineItems.length > 0) confidenceScores.push(itemsConf);
@@ -259,7 +260,7 @@ Requirements:
         merchant: createConfidentField(data.merchant, merchantConf),
         date: createConfidentField(parsedDate, dateConf),
         total: createConfidentField(Number(data.total), totalConf),
-        currency: createConfidentField(data.currency as Currency, currencyConf),
+        currency: createConfidentField(currency as Currency, currencyConfidence),
         lineItems,
         overallConfidence,
         rawResponse: response,

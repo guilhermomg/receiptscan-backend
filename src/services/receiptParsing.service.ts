@@ -36,34 +36,17 @@ export class ReceiptParsingService {
         try {
           const parsedData = await this.openAIService.parseReceipt(imageUrl);
 
-          // Check if confidence is acceptable
-          if (parsedData.overallConfidence >= 0.5) {
-            logger.info('Receipt parsed successfully with OpenAI', {
-              userId,
-              receiptId,
-              confidence: parsedData.overallConfidence,
-            });
+          logger.info('Receipt parsed successfully with OpenAI', {
+            userId,
+            receiptId,
+            confidence: parsedData.overallConfidence,
+          });
 
-            return {
-              success: true,
-              parsedData,
-              source: 'openai',
-            };
-          } else {
-            logger.warn('OpenAI parsing confidence too low', {
-              userId,
-              receiptId,
-              confidence: parsedData.overallConfidence,
-            });
-
-            // Low confidence - could fallback to Google Vision here
-            // For now, return the low confidence result
-            return {
-              success: true,
-              parsedData,
-              source: 'openai',
-            };
-          }
+          return {
+            success: true,
+            parsedData,
+            source: 'openai',
+          };
         } catch (error) {
           logger.error('OpenAI parsing failed, attempting fallback', {
             userId,
