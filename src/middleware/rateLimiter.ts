@@ -45,3 +45,22 @@ export const exportRateLimiter = rateLimit({
     return req.path.includes('/health');
   },
 });
+
+/**
+ * Rate limiter for billing endpoints
+ * Limits to 10 billing requests per minute per user
+ * Prevents abuse of checkout and portal creation
+ */
+export const billingRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Limit each user to 10 requests per minute
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: (req: Request) => {
+    // Use user ID if authenticated, otherwise use IP address
+    return req.user?.uid || req.ip || 'anonymous';
+  },
+  handler: (_req, _res, _next) => {
+    throw new AppError('Too many billing requests. Please try again later.', 429);
+  },
+});

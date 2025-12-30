@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { BillingController } from '../controllers/billing.controller';
 import { authMiddleware } from '../middleware/auth';
+import { billingRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 const billingController = new BillingController();
@@ -10,21 +11,26 @@ const billingController = new BillingController();
  * @desc Create Stripe checkout session for subscription
  * @access Private
  */
-router.post('/create-checkout', authMiddleware, billingController.createCheckout);
+router.post(
+  '/create-checkout',
+  authMiddleware,
+  billingRateLimiter,
+  billingController.createCheckout
+);
 
 /**
  * @route POST /api/v1/billing/create-portal
  * @desc Create Stripe customer portal session
  * @access Private
  */
-router.post('/create-portal', authMiddleware, billingController.createPortal);
+router.post('/create-portal', authMiddleware, billingRateLimiter, billingController.createPortal);
 
 /**
  * @route GET /api/v1/billing/subscription
  * @desc Get current user subscription
  * @access Private
  */
-router.get('/subscription', authMiddleware, billingController.getSubscription);
+router.get('/subscription', authMiddleware, billingRateLimiter, billingController.getSubscription);
 
 /**
  * @route POST /api/v1/billing/webhook

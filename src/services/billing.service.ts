@@ -15,6 +15,14 @@ interface StripeSubscriptionWithPeriods extends Stripe.Subscription {
   current_period_end?: number;
 }
 
+/**
+ * Extended Stripe Invoice type with subscription field
+ * Note: The subscription field exists at runtime but may not be in all type definitions.
+ */
+interface StripeInvoiceWithSubscription extends Stripe.Invoice {
+  subscription?: string;
+}
+
 export class BillingService {
   private stripe: Stripe;
   private usersCollection = 'users';
@@ -378,8 +386,8 @@ export class BillingService {
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     try {
       const customerId = invoice.customer as string;
-      // The invoice.subscription field exists at runtime but may not be in type definitions
-      const subscriptionId = (invoice as { subscription?: string }).subscription;
+      const invoiceWithSub = invoice as StripeInvoiceWithSubscription;
+      const subscriptionId = invoiceWithSub.subscription;
 
       if (!subscriptionId) {
         return;
