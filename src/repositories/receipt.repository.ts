@@ -14,6 +14,7 @@ import {
 import logger from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
+import type { DocumentData } from 'firebase-admin/firestore';
 
 export class ReceiptRepository {
   private receiptsCollection = 'receipts';
@@ -130,9 +131,10 @@ export class ReceiptRepository {
       const sortOrder = params.sortOrder || 'desc';
       query = query.orderBy(sortField, sortOrder);
 
-      // Get total count (without pagination)
-      const countSnapshot = await query.get();
-      const total = countSnapshot.size;
+      // Get total count efficiently using count() method
+      const countQuery = query.count();
+      const countSnapshot = await countQuery.get();
+      const total = countSnapshot.data().count;
 
       // Apply pagination
       const limit = params.limit || 20;
@@ -329,8 +331,7 @@ export class ReceiptRepository {
   /**
    * Helper method to map Firestore document to Receipt interface
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private mapDocumentToReceipt(id: string, data: any): Receipt {
+  private mapDocumentToReceipt(id: string, data: DocumentData): Receipt {
     return {
       id,
       userId: data.userId,
