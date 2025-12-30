@@ -7,6 +7,8 @@ AI-powered receipt scanning and expense tracking API for receiptscan.ai
 - RESTful API built with Express.js and TypeScript
 - **Firebase Authentication with JWT token verification**
 - **Role-Based Access Control (RBAC) for admin/user roles**
+- **Stripe subscription billing with tiered pricing (Free/Pro)**
+- **Usage tracking and limit enforcement**
 - **Subscription tier management for billing integration**
 - Structured logging with Winston (includes request IDs)
 - Environment-based configuration
@@ -22,6 +24,7 @@ AI-powered receipt scanning and expense tracking API for receiptscan.ai
 - npm >= 9.x
 - **Firebase project with Admin SDK credentials**
 - **Firestore database enabled**
+- **Stripe account for billing (optional)**
 
 ## 🛠️ Installation
 
@@ -56,6 +59,26 @@ cp .env.example .env.development
      FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE\n-----END PRIVATE KEY-----\n"
      ```
    - **Note:** Replace `\n` with `\\n` in the private key for environment files
+
+5. Set up Stripe (optional, for billing features):
+   - Go to [Stripe Dashboard](https://dashboard.stripe.com/)
+   - Get your API keys from Developers → API keys
+   - Create a product and price for Pro subscription:
+     - Go to Products → Add Product
+     - Create a "Pro Subscription" product with $9/month recurring price
+     - Copy the Price ID (starts with `price_`)
+   - Set up webhook endpoint:
+     - Go to Developers → Webhooks → Add endpoint
+     - Endpoint URL: `https://your-domain.com/api/v1/billing/webhook`
+     - Select events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`
+     - Copy the webhook signing secret
+   - Add credentials to your `.env.development` file:
+     ```env
+     STRIPE_SECRET_KEY=sk_test_your_secret_key
+     STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+     STRIPE_PRO_PRICE_ID=price_your_price_id
+     FRONTEND_URL=http://localhost:3001
+     ```
 
 ## 🏃 Running the Application
 
@@ -218,6 +241,102 @@ Update user profile.
 ```
 
 For detailed authentication flow and usage examples, see [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+
+### Billing & Subscriptions
+
+The API integrates with Stripe for subscription management with tiered pricing.
+
+#### Subscription Tiers
+
+| Tier | Price | Receipt Limit |
+|------|-------|---------------|
+| **Free** | $0/month | 10 receipts/month |
+| **Pro** | $9/month | Unlimited |
+
+#### POST /api/v1/billing/create-checkout
+
+Create a Stripe checkout session for Pro subscription signup.
+
+**Request:**
+```bash
+curl -X POST https://api.receiptscan.ai/api/v1/billing/create-checkout \
+  -H "Authorization: Bearer <firebase-id-token>"
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_..."
+  }
+}
+```
+
+#### POST /api/v1/billing/create-portal
+
+Create a Stripe customer portal session for subscription management.
+
+**Request:**
+```bash
+curl -X POST https://api.receiptscan.ai/api/v1/billing/create-portal \
+  -H "Authorization: Bearer <firebase-id-token>"
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "portalUrl": "https://billing.stripe.com/p/session/test_..."
+  }
+}
+```
+
+#### GET /api/v1/billing/subscription
+
+Get current user subscription details and usage.
+
+**Request:**
+```bash
+curl -X GET https://api.receiptscan.ai/api/v1/billing/subscription \
+  -H "Authorization: Bearer <firebase-id-token>"
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "subscription": {
+      "tier": "pro",
+      "status": "active",
+      "currentPeriodEnd": "2024-02-15T00:00:00.000Z",
+      "receiptUsageThisMonth": 25,
+      "receiptLimit": null
+    }
+  }
+}
+```
+
+#### POST /api/v1/billing/webhook
+
+Stripe webhook endpoint for processing subscription events. This endpoint is public but secured with Stripe webhook signature verification.
+
+**Handled Events:**
+- `checkout.session.completed` - Activates Pro subscription
+- `customer.subscription.updated` - Updates subscription status
+- `customer.subscription.deleted` - Downgrades to Free tier
+- `invoice.payment_succeeded` - Resets monthly usage
+- `invoice.payment_failed` - Marks subscription as past_due
+
+**Billing Features:**
+- Hosted Stripe Checkout for secure payment processing
+- Customer portal for subscription management
+- Automatic webhook processing with idempotency
+- Usage tracking and limit enforcement
+- Monthly usage reset on billing cycle
+- Grace period for failed payments
 
 ### File Upload
 
@@ -691,6 +810,10 @@ Get spending analytics and insights.
 | `OPENAI_MODEL` | OpenAI model to use | gpt-4o |
 | `OPENAI_MAX_TOKENS` | Maximum tokens for OpenAI response | 2000 |
 | `OPENAI_TEMPERATURE` | Temperature for AI responses (0-1) | 0.1 |
+| `STRIPE_SECRET_KEY` | Stripe secret key for billing | - |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | - |
+| `STRIPE_PRO_PRICE_ID` | Stripe Price ID for Pro subscription | - |
+| `FRONTEND_URL` | Frontend URL for redirect URLs | http://localhost:3001 |
 
 ## 📝 Logging
 
