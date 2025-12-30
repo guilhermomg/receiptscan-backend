@@ -153,7 +153,8 @@ export class ExportService {
       // Write header and rows
       receipts.forEach((receipt) => {
         csvStream.write({
-          Date: receipt.date instanceof Date ? receipt.date.toISOString().split('T')[0] : receipt.date,
+          Date:
+            receipt.date instanceof Date ? receipt.date.toISOString().split('T')[0] : receipt.date,
           Merchant: receipt.merchant,
           Amount: receipt.total.toFixed(2),
           Tax: receipt.tax?.toFixed(2) || '0.00',
@@ -220,8 +221,13 @@ export class ExportService {
           doc.text(` - ${receipt.currency} ${receipt.total.toFixed(2)}`, { align: 'right' });
 
           doc.fontSize(8);
-          const receiptDate = receipt.date instanceof Date ? receipt.date.toLocaleDateString() : new Date(receipt.date).toLocaleDateString();
-          doc.text(`   Date: ${receiptDate} | Category: ${receipt.category} | Status: ${receipt.status}`);
+          const receiptDate =
+            receipt.date instanceof Date
+              ? receipt.date.toLocaleDateString()
+              : new Date(receipt.date).toLocaleDateString();
+          doc.text(
+            `   Date: ${receiptDate} | Category: ${receipt.category} | Status: ${receipt.status}`
+          );
 
           if (receipt.tags.length > 0) {
             doc.text(`   Tags: ${receipt.tags.join(', ')}`);
@@ -234,12 +240,9 @@ export class ExportService {
         const pageCount = doc.bufferedPageRange().count;
         for (let i = 0; i < pageCount; i++) {
           doc.switchToPage(i);
-          doc.fontSize(8).text(
-            `Page ${i + 1} of ${pageCount}`,
-            50,
-            doc.page.height - 50,
-            { align: 'center' }
-          );
+          doc
+            .fontSize(8)
+            .text(`Page ${i + 1} of ${pageCount}`, 50, doc.page.height - 50, { align: 'center' });
         }
 
         doc.end();

@@ -4,6 +4,7 @@ import { ReceiptParsingController } from '../controllers/receiptParsing.controll
 import { authMiddleware } from '../middleware/auth';
 import { uploadSingleFile } from '../middleware/upload';
 import { uploadRateLimiter } from '../middleware/rateLimiter';
+import { checkSubscriptionLimit } from '../middleware/subscriptionLimit';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
@@ -35,10 +36,12 @@ const handleMulterError = (err: Error, _req: Request, _res: Response, next: Next
  * Max file size: 10MB
  * Allowed types: images (jpeg, png, gif, etc.) and PDF
  * Rate limit: 10 uploads per minute per user
+ * Subscription: Free tier limited to 10 receipts/month, Pro unlimited
  */
 router.post(
   '/upload',
   authMiddleware,
+  checkSubscriptionLimit,
   uploadRateLimiter,
   uploadSingleFile,
   handleMulterError,

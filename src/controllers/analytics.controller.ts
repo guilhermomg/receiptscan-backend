@@ -20,11 +20,7 @@ export class AnalyticsController {
    * GET /api/v1/receipts/analytics
    * Get spending analytics and insights
    */
-  public getAnalytics = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> => {
+  public getAnalytics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
         throw new AppError('Authentication required', 401);
