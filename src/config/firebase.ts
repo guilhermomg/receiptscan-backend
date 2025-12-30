@@ -30,7 +30,8 @@ export const initializeFirebase = (): void => {
     logger.info('Firebase Admin SDK initialized successfully');
   } catch (error) {
     logger.error('Failed to initialize Firebase Admin SDK', { error });
-    throw error;
+    logger.warn('Continuing without Firebase - authentication and storage will not work');
+    // Don't throw - allow server to start for testing Swagger docs
   }
 };
 
