@@ -14,10 +14,7 @@ export const generalRateLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per minute
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  keyGenerator: (req: Request) => {
-    // Use IP address for general rate limiting
-    return req.ip || 'anonymous';
-  },
+  // Use default key generator (handles IPv6 correctly)
   handler: (req, _res, _next) => {
     logger.warn('General rate limit exceeded', {
       ip: req.ip,
@@ -53,8 +50,12 @@ export const uploadRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise use IP address
-    return req.user?.uid || req.ip || 'anonymous';
+    // Use user ID if authenticated, otherwise fall back to default IP handling
+    if (req.user?.uid) {
+      return `user:${req.user.uid}`;
+    }
+    // Return undefined to use default IP key generator
+    return undefined as unknown as string;
   },
   handler: (req, _res, _next) => {
     logger.warn('Upload rate limit exceeded', {
@@ -93,8 +94,12 @@ export const exportRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise use IP address
-    return req.user?.uid || req.ip || 'anonymous';
+    // Use user ID if authenticated, otherwise fall back to default IP handling
+    if (req.user?.uid) {
+      return `user:${req.user.uid}`;
+    }
+    // Return undefined to use default IP key generator
+    return undefined as unknown as string;
   },
   handler: (req, _res, _next) => {
     logger.warn('Export rate limit exceeded', {
@@ -134,8 +139,12 @@ export const billingRateLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise use IP address
-    return req.user?.uid || req.ip || 'anonymous';
+    // Use user ID if authenticated, otherwise fall back to default IP handling
+    if (req.user?.uid) {
+      return `user:${req.user.uid}`;
+    }
+    // Return undefined to use default IP key generator
+    return undefined as unknown as string;
   },
   handler: (req, _res, _next) => {
     logger.warn('Billing rate limit exceeded', {
