@@ -48,8 +48,9 @@ router.post(
  * Delete a receipt file
  * Required: Authentication
  * Body: { filePath: string }
+ * Rate limit: 10 requests per minute per user
  */
-router.delete('/file', authMiddleware, uploadController.deleteReceiptFile);
+router.delete('/file', authMiddleware, uploadRateLimiter, uploadController.deleteReceiptFile);
 
 /**
  * POST /api/v1/receipts/file-url
@@ -57,7 +58,8 @@ router.delete('/file', authMiddleware, uploadController.deleteReceiptFile);
  * Required: Authentication
  * Body: { filePath: string }
  * Returns: { fileUrl: string, expiresIn: string }
+ * Rate limit: 10 requests per minute per user
  */
-router.post('/file-url', authMiddleware, uploadController.generateFileUrl);
+router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.generateFileUrl);
 
 export default router;
