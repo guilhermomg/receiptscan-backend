@@ -412,6 +412,149 @@ curl -X POST https://api.receiptscan.ai/api/v1/receipts/parse \
 - Detailed error messages for troubleshooting
 - Processing time tracking
 
+### Receipt CRUD Operations
+
+All receipt CRUD endpoints require authentication. See [docs/RECEIPT_CRUD_API.md](docs/RECEIPT_CRUD_API.md) for comprehensive documentation.
+
+#### POST /api/v1/receipts
+Create a new receipt.
+
+**Request Body:**
+```json
+{
+  "merchant": "Whole Foods Market",
+  "date": "2024-01-15T00:00:00.000Z",
+  "total": 127.45,
+  "tax": 11.25,
+  "currency": "USD",
+  "category": "Food & Dining",
+  "tags": ["groceries", "organic"],
+  "lineItems": [...],
+  "imageUrl": "https://storage.googleapis.com/...",
+  "status": "completed"
+}
+```
+
+**Response (201):**
+```json
+{
+  "status": "success",
+  "message": "Receipt created successfully",
+  "data": {
+    "receipt": { ... }
+  }
+}
+```
+
+#### GET /api/v1/receipts/:id
+Get a single receipt by ID.
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "receipt": { ... }
+  }
+}
+```
+
+#### GET /api/v1/receipts
+List receipts with filtering, sorting, and cursor-based pagination.
+
+**Query Parameters:**
+- `startDate`, `endDate` - Date range filter
+- `category`, `merchant`, `status` - Field filters
+- `tags` - Comma-separated tags
+- `search` - Search merchant and tags
+- `limit` (default: 20, max: 100) - Results per page
+- `startAfter` - Cursor for pagination
+- `sortBy` (date, total, merchant, createdAt, updatedAt) - Sort field
+- `sortOrder` (asc, desc) - Sort direction
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "receipts": [...],
+    "pagination": {
+      "total": 150,
+      "limit": 20,
+      "hasMore": true,
+      "nextCursor": "receipt-id"
+    }
+  }
+}
+```
+
+#### PATCH /api/v1/receipts/:id
+Update a receipt (partial update).
+
+**Request Body:**
+```json
+{
+  "merchant": "Updated Name",
+  "total": 150.00,
+  "tags": ["updated", "tags"]
+}
+```
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Receipt updated successfully",
+  "data": {
+    "receipt": { ... }
+  }
+}
+```
+
+#### DELETE /api/v1/receipts/:id
+Soft delete a receipt (sets `deletedAt` timestamp).
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "message": "Receipt deleted successfully"
+}
+```
+
+#### GET /api/v1/receipts/stats
+Get receipt statistics with optional grouping.
+
+**Query Parameters:**
+- `startDate`, `endDate` - Date range filter
+- `groupBy` - Group by 'category' or 'month'
+
+**Response (200):**
+```json
+{
+  "status": "success",
+  "data": {
+    "stats": {
+      "totalAmount": 5234.56,
+      "count": 42,
+      "byCategory": {
+        "Food & Dining": { "amount": 2100.00, "count": 25 }
+      }
+    }
+  }
+}
+```
+
+**Receipt CRUD Features:**
+- Full CRUD operations with proper authorization
+- Cursor-based pagination for efficient scrolling
+- Advanced filtering (date range, category, merchant, tags, status)
+- Search across merchant names and tags
+- Soft delete preserves data with `deletedAt` timestamp
+- Statistics and aggregations by category or time period
+- Rate limiting (10 requests per minute per user)
+- Comprehensive Firestore indexes for optimal performance
+
 ## 🌍 Environment Variables
 
 | Variable | Description | Default |
