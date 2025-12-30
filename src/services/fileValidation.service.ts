@@ -54,7 +54,13 @@ export class FileValidationService {
    * Validate file extension
    */
   validateFileExtension(filename: string): void {
-    const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      logger.warn('File has no extension', { filename });
+      throw new AppError('File must have a valid extension', 400);
+    }
+
+    const extension = filename.substring(lastDotIndex).toLowerCase();
     if (!FILE_UPLOAD_CONFIG.allowedExtensions.includes(extension)) {
       logger.warn('Invalid file extension', { filename, extension });
       throw new AppError(
@@ -88,10 +94,17 @@ export class FileValidationService {
    */
   generateFilePath(userId: string, receiptId: string, originalFilename: string): string {
     const timestamp = Date.now();
-    const extension = originalFilename.substring(originalFilename.lastIndexOf('.'));
-    const sanitizedFilename = originalFilename
-      .substring(0, originalFilename.lastIndexOf('.'))
-      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const lastDotIndex = originalFilename.lastIndexOf('.');
+
+    let extension = '';
+    let baseFilename = originalFilename;
+
+    if (lastDotIndex !== -1) {
+      extension = originalFilename.substring(lastDotIndex);
+      baseFilename = originalFilename.substring(0, lastDotIndex);
+    }
+
+    const sanitizedFilename = baseFilename.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     return `receipts/${userId}/${receiptId}/${timestamp}-${sanitizedFilename}${extension}`;
   }

@@ -58,7 +58,7 @@ export class UploadController {
   };
 
   /**
-   * DELETE /api/v1/receipts/:receiptId/file
+   * DELETE /api/v1/receipts/file
    * Delete a receipt file
    */
   deleteReceiptFile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

@@ -323,7 +323,6 @@ Generate a new signed URL for an existing file.
 | `FIREBASE_CLIENT_EMAIL` | Firebase service account email | - |
 | `FIREBASE_PRIVATE_KEY` | Firebase service account private key | - |
 | `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
-| `FIREBASE_STORAGE_BUCKET` | Firebase Cloud Storage bucket name | - |
 
 ## 📝 Logging
 

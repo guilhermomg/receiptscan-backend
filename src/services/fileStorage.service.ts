@@ -75,16 +75,15 @@ export class FileStorageService {
       const bucket = storage.bucket(this.bucketName);
       const file = bucket.file(filePath);
 
-      // Check if file exists before attempting to delete
-      const [exists] = await file.exists();
-      if (!exists) {
-        logger.warn('File does not exist, skipping deletion', { filePath });
-        return;
-      }
-
+      // Firebase Storage delete is idempotent - no error if file doesn't exist
       await file.delete();
       logger.info('File deleted successfully', { filePath });
     } catch (error) {
+      // Only log as warning if it's a "not found" error
+      if ((error as { code?: number }).code === 404) {
+        logger.warn('File not found, skipping deletion', { filePath });
+        return;
+      }
       logger.error('Failed to delete file', { filePath, error });
       throw new AppError('Failed to delete file from storage', 500);
     }
