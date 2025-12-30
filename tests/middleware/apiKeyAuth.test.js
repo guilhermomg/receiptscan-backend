@@ -54,16 +54,13 @@ describe('API Key Authentication Middleware', () => {
     });
 
     it('should set apiKeyValid flag on request', async () => {
-      app.use((req, res, next) => {
-        app.use(apiKeyAuth);
-        next();
-      });
-      
-      app.get('/test-flag', apiKeyAuth, (req, res) => {
+      const testApp = express();
+      testApp.use(express.json());
+      testApp.get('/test-flag', apiKeyAuth, (req, res) => {
         res.json({ apiKeyValid: req.apiKeyValid });
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .get('/test-flag')
         .set('X-API-Key', validApiKey);
       

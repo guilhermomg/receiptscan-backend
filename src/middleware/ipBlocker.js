@@ -5,7 +5,8 @@
 
 // In-memory store for tracking IP abuse (in production, use Redis)
 const ipAttempts = new Map();
-const blockedIPs = new Set();
+const blockedIPs = new Map(); // Changed to Map to store expiration time
+const blockTimers = new Map(); // Store timer references for cleanup
 
 // Configuration
 const MAX_FAILED_ATTEMPTS = 10;
@@ -43,13 +44,21 @@ const trackFailedAttempt = (ip) => {
  * Block an IP address
  */
 const blockIP = (ip) => {
-  blockedIPs.add(ip);
+  const expiresAt = Date.now() + BLOCK_DURATION_MS;
+  blockedIPs.set(ip, expiresAt);
   console.warn(`[Security] IP blocked due to abuse: ${ip}`);
   
-  // Automatically unblock after duration
-  setTimeout(() => {
+  // Clear any existing timer
+  if (blockTimers.has(ip)) {
+    clearTimeout(blockTimers.get(ip));
+  }
+  
+  // Set timer to automatically unblock
+  const timer = setTimeout(() => {
     unblockIP(ip);
   }, BLOCK_DURATION_MS);
+  
+  blockTimers.set(ip, timer);
 };
 
 /**
@@ -58,6 +67,13 @@ const blockIP = (ip) => {
 const unblockIP = (ip) => {
   blockedIPs.delete(ip);
   ipAttempts.delete(ip);
+  
+  // Clear timer
+  if (blockTimers.has(ip)) {
+    clearTimeout(blockTimers.get(ip));
+    blockTimers.delete(ip);
+  }
+  
   console.info(`[Security] IP unblocked: ${ip}`);
 };
 
@@ -65,7 +81,18 @@ const unblockIP = (ip) => {
  * Check if IP is blocked
  */
 const isIPBlocked = (ip) => {
-  return blockedIPs.has(ip);
+  if (!blockedIPs.has(ip)) {
+    return false;
+  }
+  
+  const expiresAt = blockedIPs.get(ip);
+  if (Date.now() > expiresAt) {
+    // Block expired, clean up
+    unblockIP(ip);
+    return false;
+  }
+  
+  return true;
 };
 
 /**
@@ -118,7 +145,7 @@ const trackFailure = (req, res, next) => {
  */
 const getAbuseStats = () => {
   return {
-    blockedIPs: Array.from(blockedIPs),
+    blockedIPs: Array.from(blockedIPs.keys()),
     trackedIPs: ipAttempts.size,
     totalAttempts: Array.from(ipAttempts.values()).reduce((sum, attempts) => sum + attempts.length, 0)
   };
@@ -134,6 +161,30 @@ const manualBlockIP = (ip) => {
 const manualUnblockIP = (ip) => {
   unblockIP(ip);
 };
+
+/**
+ * Cleanup expired blocks periodically
+ */
+const cleanupExpiredBlocks = () => {
+  const now = Date.now();
+  for (const [ip, expiresAt] of blockedIPs.entries()) {
+    if (now > expiresAt) {
+      unblockIP(ip);
+    }
+  }
+};
+
+// Run cleanup every 5 minutes
+const cleanupInterval = setInterval(cleanupExpiredBlocks, 5 * 60 * 1000);
+
+// Cleanup on process exit
+process.on('SIGTERM', () => {
+  clearInterval(cleanupInterval);
+  // Clear all timers
+  for (const timer of blockTimers.values()) {
+    clearTimeout(timer);
+  }
+});
 
 module.exports = {
   checkIPBlock,
