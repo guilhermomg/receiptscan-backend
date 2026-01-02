@@ -12,13 +12,34 @@ import {
   ReceiptStats,
 } from '../models/receipt.model';
 import { AppError } from '../middleware/errorHandler';
+import { FileStorageService } from './fileStorage.service';
 import logger from '../config/logger';
 
 export class ReceiptService {
   private receiptRepository: ReceiptRepository;
+  private fileStorageService: FileStorageService;
 
   constructor() {
     this.receiptRepository = new ReceiptRepository();
+    this.fileStorageService = new FileStorageService();
+  }
+
+  private async withSignedImageUrl(receipt: Receipt): Promise<Receipt> {
+    if (!receipt.imageUrl) {
+      return receipt;
+    }
+
+    try {
+      const signedUrl = await this.fileStorageService.generateSignedUrl(receipt.imageUrl);
+      return { ...receipt, imageUrl: signedUrl };
+    } catch (error) {
+      // Return receipt without signed URL if generation fails to avoid breaking the response
+      logger.warn('Failed to generate signed URL for receipt image', {
+        receiptId: receipt.id,
+        error,
+      });
+      return receipt;
+    }
   }
 
   /**
@@ -46,7 +67,7 @@ export class ReceiptService {
         throw new AppError('Receipt not found', 404);
       }
 
-      return receipt;
+      return await this.withSignedImageUrl(receipt);
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -62,7 +83,13 @@ export class ReceiptService {
   public async listReceipts(params: ReceiptQueryParams): Promise<PaginatedReceipts> {
     try {
       logger.debug('Listing receipts', { userId: params.userId, filters: params });
-      return await this.receiptRepository.getReceiptsByUserId(params);
+      const result = await this.receiptRepository.getReceiptsByUserId(params);
+
+      const receiptsWithSignedUrls = await Promise.all(
+        result.receipts.map((receipt) => this.withSignedImageUrl(receipt))
+      );
+
+      return { ...result, receipts: receiptsWithSignedUrls };
     } catch (error) {
       logger.error('Error in receipt service - listReceipts', { userId: params.userId, error });
       throw error;
@@ -141,7 +168,7 @@ export class ReceiptService {
     try {
       logger.debug('Searching receipts', { userId, searchTerm });
 
-      return await this.receiptRepository.getReceiptsByUserId({
+      const result = await this.receiptRepository.getReceiptsByUserId({
         userId,
         search: searchTerm,
         limit,
@@ -149,6 +176,12 @@ export class ReceiptService {
         sortBy: 'date',
         sortOrder: 'desc',
       });
+
+      const receiptsWithSignedUrls = await Promise.all(
+        result.receipts.map((receipt) => this.withSignedImageUrl(receipt))
+      );
+
+      return { ...result, receipts: receiptsWithSignedUrls };
     } catch (error) {
       logger.error('Error in receipt service - searchReceipts', { userId, error });
       throw error;

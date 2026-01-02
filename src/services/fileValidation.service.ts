@@ -18,6 +18,17 @@ export const FILE_UPLOAD_CONFIG = {
     'application/pdf',
   ],
   allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.pdf'],
+  // Additional MIME type mappings for better detection
+  mimeTypeExtensionMap: {
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/jpg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/gif': ['.gif'],
+    'image/webp': ['.webp'],
+    'image/bmp': ['.bmp'],
+    'image/tiff': ['.tiff'],
+    'application/pdf': ['.pdf'],
+  },
 };
 
 /**
@@ -52,17 +63,63 @@ export class FileValidationService {
 
   /**
    * Validate file extension
+   * Falls back to MIME type if extension is not available
    */
-  validateFileExtension(filename: string): void {
-    const lastDotIndex = filename.lastIndexOf('.');
-    if (lastDotIndex === -1) {
-      logger.warn('File has no extension', { filename });
+  validateFileExtension(filename: string, mimetype?: string): void {
+    // Add defensive check and detailed logging
+    logger.debug('validateFileExtension called', {
+      filename,
+      type: typeof filename,
+      isString: typeof filename === 'string',
+      length: typeof filename === 'string' ? filename.length : 'N/A',
+      isEmpty: !filename,
+      mimetype,
+    });
+
+    if (!filename || typeof filename !== 'string') {
+      logger.warn('Invalid filename - not a string', { filename, type: typeof filename });
+      // If we have a MIME type, we can still validate using that
+      if (mimetype && FILE_UPLOAD_CONFIG.allowedMimeTypes.includes(mimetype)) {
+        logger.info('File validation using MIME type fallback', { mimetype });
+        return;
+      }
       throw new AppError('File must have a valid extension', 400);
     }
 
-    const extension = filename.substring(lastDotIndex).toLowerCase();
+    // Trim and normalize the filename
+    const normalizedFilename = filename.trim();
+
+    if (!normalizedFilename) {
+      logger.warn('Empty filename after trimming', { originalFilename: filename });
+      throw new AppError('File must have a valid extension', 400);
+    }
+
+    const lastDotIndex = normalizedFilename.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      logger.warn('File has no extension', {
+        filename: normalizedFilename,
+        length: normalizedFilename.length,
+      });
+      // Fallback to MIME type validation
+      if (mimetype && FILE_UPLOAD_CONFIG.allowedMimeTypes.includes(mimetype)) {
+        logger.info('File validation using MIME type fallback (no extension)', {
+          filename: normalizedFilename,
+          mimetype,
+        });
+        return;
+      }
+      throw new AppError('File must have a valid extension', 400);
+    }
+
+    const extension = normalizedFilename.substring(lastDotIndex).toLowerCase();
+    logger.debug('Extension validation', {
+      filename: normalizedFilename,
+      extension,
+      allowed: FILE_UPLOAD_CONFIG.allowedExtensions.includes(extension),
+    });
+
     if (!FILE_UPLOAD_CONFIG.allowedExtensions.includes(extension)) {
-      logger.warn('Invalid file extension', { filename, extension });
+      logger.warn('Invalid file extension', { filename: normalizedFilename, extension });
       throw new AppError(
         `File extension '${extension}' is not allowed. Allowed extensions: ${FILE_UPLOAD_CONFIG.allowedExtensions.join(', ')}`,
         400
@@ -74,13 +131,21 @@ export class FileValidationService {
    * Comprehensive file validation
    */
   validateFile(file: { originalname: string; size: number; mimetype: string }): void {
+    logger.debug('File validation started', {
+      hasFile: !!file,
+      fileKeys: file ? Object.keys(file) : [],
+      originalname: file?.originalname,
+      size: file?.size,
+      mimetype: file?.mimetype,
+    });
+
     if (!file) {
       throw new AppError('No file provided', 400);
     }
 
     this.validateFileSize(file.size);
     this.validateMimeType(file.mimetype);
-    this.validateFileExtension(file.originalname);
+    this.validateFileExtension(file.originalname, file.mimetype);
 
     logger.debug('File validation passed', {
       filename: file.originalname,

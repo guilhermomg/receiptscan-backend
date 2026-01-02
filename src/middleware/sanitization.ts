@@ -3,6 +3,19 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../config/logger';
 
 /**
+ * Check if a string is a valid URL
+ */
+const isValidUrl = (str: string): boolean => {
+  try {
+    const url = new URL(str);
+    // Only allow http/https protocols
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Sanitizes a value by removing potentially dangerous characters
  * Prevents XSS, SQL/NoSQL injection, and command injection attempts
  * Note: This is a basic defense layer. Primary protections are:
@@ -11,6 +24,11 @@ import logger from '../config/logger';
  */
 const sanitizeValue = (value: unknown): unknown => {
   if (typeof value === 'string') {
+    // Skip sanitization for valid URLs to preserve query parameters
+    if (isValidUrl(value)) {
+      return value;
+    }
+
     // Remove null bytes
     let sanitized = value.replace(/\0/g, '');
 
@@ -69,7 +87,14 @@ export const sanitizeRequest = (req: Request, _res: Response, next: NextFunction
 
     // Sanitize query parameters
     if (req.query && typeof req.query === 'object') {
-      req.query = sanitizeValue(req.query) as typeof req.query;
+      const sanitizedQuery = sanitizeValue(req.query) as Record<string, unknown>;
+      // Cannot directly assign to req.query as it's read-only
+      // Instead, update properties in place
+      for (const key in req.query) {
+        if (key in sanitizedQuery) {
+          (req.query as Record<string, unknown>)[key] = sanitizedQuery[key];
+        }
+      }
     }
 
     // Sanitize route parameters

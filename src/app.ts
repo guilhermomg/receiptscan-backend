@@ -127,7 +127,10 @@ export const createApp = (): Application => {
 
   // Request sanitization to prevent injection attacks (skip for /docs and /health)
   app.use((req, res, next) => {
-    if (req.path.startsWith(`${config.apiPrefix}/docs`) || req.path === `${config.apiPrefix}/health`) {
+    if (
+      req.path.startsWith(`${config.apiPrefix}/docs`) ||
+      req.path === `${config.apiPrefix}/health`
+    ) {
       return next();
     }
     sanitizeRequest(req, res, next);
