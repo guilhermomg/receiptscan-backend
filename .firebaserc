@@ -1,8 +1,8 @@
 {
   "projects": {
-    "dev": "receiptscan-dev",
-    "test": "receiptscan-test",
-    "prd": "receiptscan-prd"
+    "dev": "receipt-scan-a3954",
+    "test": "receipt-scan-test",
+    "prd": "receipt-scan-prd"
   },
   "targets": {},
   "etags": {}

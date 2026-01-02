@@ -29,8 +29,8 @@ export const mockOpenAIResponse = {
             {
               description: 'Test Item',
               quantity: 1,
-              unitPrice: 10.00,
-              total: 10.00,
+              unitPrice: 10.0,
+              total: 10.0,
               confidence: 0.75,
             },
           ],

@@ -39,6 +39,8 @@ export class UploadController {
         userId: req.user.uid,
         filename: req.file.originalname,
         size: req.file.size,
+        mimetype: req.file.mimetype,
+        fileKeys: Object.keys(req.file),
       });
 
       // Upload file

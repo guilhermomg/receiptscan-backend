@@ -150,15 +150,15 @@ export class ReceiptRepository {
         );
       }
 
-      // Apply sorting
-      const sortField = params.sortBy || 'date';
-      const sortOrder = params.sortOrder || 'desc';
-      query = query.orderBy(sortField, sortOrder);
-
-      // Get total count efficiently using count() method
+      // Get total count BEFORE applying sorting to avoid index issues
       const countQuery = query.count();
       const countSnapshot = await countQuery.get();
       const total = countSnapshot.data().count;
+
+      // Apply sorting AFTER count query
+      const sortField = params.sortBy || 'date';
+      const sortOrder = params.sortOrder || 'desc';
+      query = query.orderBy(sortField, sortOrder);
 
       // Cursor-based pagination
       const limit = params.limit || 20;
@@ -206,7 +206,12 @@ export class ReceiptRepository {
         nextCursor,
       };
     } catch (error) {
-      logger.error('Error fetching receipts', { userId: params.userId, error });
+      logger.error('Error fetching receipts', {
+        userId: params.userId,
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        params,
+      });
       throw new AppError('Failed to fetch receipts', 500);
     }
   }
