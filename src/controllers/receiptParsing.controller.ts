@@ -1,8 +1,9 @@
 /// <reference path="../types/express.d.ts" />
 import { Request, Response, NextFunction } from 'express';
 import { ReceiptParsingService } from '../services/receiptParsing.service';
+import { ReceiptService } from '../services/receipt.service';
 import { AppError } from '../middleware/errorHandler';
-import { parseReceiptRequestSchema } from '../models/parsedReceipt.validation';
+import { receiptIdParamSchema } from '../models/parsedReceipt.validation';
 import logger from '../config/logger';
 import { ParseReceiptRequest } from '../models/parsedReceipt.model';
 
@@ -12,14 +13,16 @@ import { ParseReceiptRequest } from '../models/parsedReceipt.model';
  */
 export class ReceiptParsingController {
   private parsingService: ReceiptParsingService;
+  private receiptService: ReceiptService;
 
   constructor() {
     this.parsingService = new ReceiptParsingService();
+    this.receiptService = new ReceiptService();
   }
 
   /**
-   * POST /api/v1/receipts/parse
-   * Parse receipt from image URL using AI
+   * POST /api/v1/receipts/{receiptId}/parse
+   * Parse receipt from stored image using AI
    */
   parseReceipt = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -28,27 +31,34 @@ export class ReceiptParsingController {
         throw new AppError('Authentication required', 401);
       }
 
-      logger.info('Parsing receipt request received', {
-        requestId: req.requestId,
-        userId: req.user.uid,
-        body: req.body,
-      });
-
-      // Validate request body
-      const validationResult = parseReceiptRequestSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const errorMessages = validationResult.error.issues
+      // Validate receipt ID from URL param
+      const paramValidationResult = receiptIdParamSchema.safeParse(req.params);
+      if (!paramValidationResult.success) {
+        const errorMessages = paramValidationResult.error.issues
           .map((issue) => issue.message)
           .join(', ');
         throw new AppError(`Invalid request: ${errorMessages}`, 400);
       }
 
-      const { imageUrl, receiptId } = validationResult.data;
+      const receiptId = paramValidationResult.data.receiptId;
+
+      logger.info('Parsing receipt request received', {
+        requestId: req.requestId,
+        userId: req.user.uid,
+        receiptId,
+      });
+
+      const receipt = await this.receiptService.getReceiptById(receiptId, req.user.uid);
+      if (!receipt || !receipt.imageUrl) {
+        throw new AppError('Receipt not found or has no image', 404);
+      }
+
+      const imageUrl = receipt.imageUrl;
 
       // Validate image URL is accessible
       const isValidUrl = await this.parsingService.validateImageUrl(imageUrl);
       if (!isValidUrl) {
-        throw new AppError('Image URL is not accessible or invalid', 400);
+        throw new AppError('Receipt image is not accessible', 400);
       }
 
       // Create parse request

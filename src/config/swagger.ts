@@ -131,7 +131,7 @@ const swaggerDefinition = {
       },
       ReceiptStatus: {
         type: 'string',
-        enum: ['pending', 'processing', 'completed', 'failed'],
+        enum: ['uploaded', 'parsing', 'completed', 'failed'],
         description: 'Receipt processing status',
       },
       ReceiptCategory: {
@@ -361,75 +361,98 @@ const swaggerDefinition = {
         description:
           'Confidence level for extracted fields (high: >0.8, medium: 0.5-0.8, low: <0.5)',
       },
+      ConfidentField: {
+        type: 'object',
+        properties: {
+          value: {
+            description: 'Extracted value',
+          },
+          confidence: {
+            type: 'number',
+            format: 'float',
+            minimum: 0,
+            maximum: 1,
+          },
+          confidenceLevel: {
+            $ref: '#/components/schemas/ConfidenceLevel',
+          },
+        },
+      },
+      ContactInfo: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', example: 'Whole Foods Market' },
+          address: { type: 'string', example: '123 Main St' },
+          city: { type: 'string', example: 'Austin' },
+          state: { type: 'string', example: 'TX' },
+          zip: { type: 'string', example: '73301' },
+          country: { type: 'string', example: 'USA' },
+          phone: { type: 'string', example: '+1-512-555-1234' },
+          email: { type: 'string', example: 'info@wholefoods.com' },
+        },
+      },
+      PaymentDetails: {
+        type: 'object',
+        properties: {
+          method: { type: 'string', example: 'card' },
+          cardNetwork: { type: 'string', example: 'Visa' },
+          last4: { type: 'string', example: '4242' },
+        },
+      },
       ParsedReceipt: {
         type: 'object',
         properties: {
           merchant: {
-            type: 'string',
-            example: 'Whole Foods Market',
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { $ref: '#/components/schemas/ContactInfo' } } },
+            ],
           },
-          merchantConfidence: {
-            type: 'number',
-            example: 0.95,
-          },
-          merchantConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
+          customer: {
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { $ref: '#/components/schemas/ContactInfo' } } },
+            ],
+            nullable: true,
           },
           date: {
-            type: 'string',
-            format: 'date-time',
-          },
-          dateConfidence: {
-            type: 'number',
-            example: 0.92,
-          },
-          dateConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'string', format: 'date-time' } } },
+            ],
           },
           total: {
-            type: 'number',
-            example: 127.45,
-          },
-          totalConfidence: {
-            type: 'number',
-            example: 0.98,
-          },
-          totalConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'number', example: 127.45 } } },
+            ],
           },
           tax: {
-            type: 'number',
-            example: 11.25,
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'number', example: 11.25 } } },
+            ],
             nullable: true,
-          },
-          taxConfidence: {
-            type: 'number',
-            example: 0.88,
-          },
-          taxConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
           },
           currency: {
-            $ref: '#/components/schemas/Currency',
-          },
-          currencyConfidence: {
-            type: 'number',
-            example: 0.99,
-          },
-          currencyConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { $ref: '#/components/schemas/Currency' } } },
+            ],
           },
           category: {
-            type: 'string',
-            example: 'Food & Dining',
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'string', example: 'Food & Dining' } } },
+            ],
             nullable: true,
           },
-          categoryConfidence: {
-            type: 'number',
-            example: 0.85,
-          },
-          categoryConfidenceLevel: {
-            $ref: '#/components/schemas/ConfidenceLevel',
+          payment: {
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { $ref: '#/components/schemas/PaymentDetails' } } },
+            ],
+            nullable: true,
           },
           lineItems: {
             type: 'array',
@@ -530,36 +553,8 @@ const swaggerDefinition = {
       // Upload Models
       UploadResponse: {
         type: 'object',
-        properties: {
-          receiptId: {
-            type: 'string',
-            format: 'uuid',
-          },
-          fileName: {
-            type: 'string',
-            example: 'receipt.jpg',
-          },
-          filePath: {
-            type: 'string',
-            example: 'receipts/user-id/receipt-id/timestamp-filename.jpg',
-          },
-          fileUrl: {
-            type: 'string',
-            format: 'uri',
-          },
-          fileSize: {
-            type: 'number',
-            example: 1024000,
-          },
-          mimeType: {
-            type: 'string',
-            example: 'image/jpeg',
-          },
-          uploadedAt: {
-            type: 'string',
-            format: 'date-time',
-          },
-        },
+        description: 'Receipt object returned after upload',
+        allOf: [{ $ref: '#/components/schemas/Receipt' }],
       },
 
       // Billing Models

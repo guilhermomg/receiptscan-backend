@@ -224,7 +224,7 @@ export class ExportService {
           const receiptDate =
             receipt.date instanceof Date
               ? receipt.date.toLocaleDateString()
-              : new Date(receipt.date).toLocaleDateString();
+              : new Date(receipt.date!).toLocaleDateString();
           doc.text(
             `   Date: ${receiptDate} | Category: ${receipt.category} | Status: ${receipt.status}`
           );

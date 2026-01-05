@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UploadService } from '../services/upload.service';
 import { BillingService } from '../services/billing.service';
+import { ReceiptService } from '../services/receipt.service';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../config/logger';
 
@@ -12,10 +13,12 @@ import logger from '../config/logger';
 export class UploadController {
   private uploadService: UploadService;
   private billingService: BillingService;
+  private receiptService: ReceiptService;
 
   constructor() {
     this.uploadService = new UploadService();
     this.billingService = new BillingService();
+    this.receiptService = new ReceiptService();
   }
 
   /**
@@ -44,16 +47,27 @@ export class UploadController {
       });
 
       // Upload file
-      const result = await this.uploadService.uploadReceiptFile(req.user.uid, req.file);
+      const uploadResult = await this.uploadService.uploadReceiptFile(req.user.uid, req.file);
+
+      const receipt = await this.receiptService.createUploadedReceipt(
+        req.user.uid,
+        uploadResult.receiptId,
+        uploadResult.filePath
+      );
+
+      // Replace internal filePath with signed URL
+      receipt.imageUrl = uploadResult.fileUrl;
 
       // Increment usage counter for free tier users
       await this.billingService.incrementReceiptUsage(req.user.uid);
 
-      // Return success response
+      // Return unified receipt object
       res.status(201).json({
         status: 'success',
-        message: 'File uploaded successfully',
-        data: result,
+        message: 'Receipt uploaded successfully',
+        data: {
+          receipt,
+        },
       });
     } catch (error) {
       logger.error('Upload failed', {

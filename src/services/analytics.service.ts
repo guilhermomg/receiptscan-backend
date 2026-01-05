@@ -181,12 +181,14 @@ export class AnalyticsService {
       });
 
       receipts.push(
-        ...result.receipts.map((r) => ({
-          merchant: r.merchant,
-          total: r.total,
-          category: r.category,
-          date: r.date instanceof Date ? r.date : new Date(r.date),
-        }))
+        ...result.receipts
+          .filter((r) => r.merchant && r.category && r.date)
+          .map((r) => ({
+            merchant: r.merchant!,
+            total: r.total,
+            category: r.category!,
+            date: r.date instanceof Date ? r.date : new Date(r.date!),
+          }))
       );
 
       hasMore = result.hasMore;

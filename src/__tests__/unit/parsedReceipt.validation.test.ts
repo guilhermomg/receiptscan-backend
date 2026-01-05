@@ -2,60 +2,69 @@
  * Unit tests for parsed receipt validation schemas
  */
 
-import { parseReceiptRequestSchema } from '../../models/parsedReceipt.validation';
+import {
+  parseReceiptRequestSchema,
+  receiptIdParamSchema,
+} from '../../models/parsedReceipt.validation';
 
 describe('ParsedReceipt Validation Schemas', () => {
   describe('parseReceiptRequestSchema', () => {
-    it('should validate a valid parse request with imageUrl only', () => {
-      const validRequest = {
-        imageUrl: 'https://storage.googleapis.com/bucket/receipt.jpg',
-      };
+    it('should validate an empty request body', () => {
+      const validRequest = {};
 
       const result = parseReceiptRequestSchema.parse(validRequest);
-      expect(result.imageUrl).toBe('https://storage.googleapis.com/bucket/receipt.jpg');
-      expect(result.receiptId).toBeUndefined();
+      expect(result).toEqual({});
     });
 
-    it('should validate a valid parse request with imageUrl and receiptId', () => {
-      const validRequest = {
-        imageUrl: 'https://storage.googleapis.com/bucket/receipt.jpg',
+    it('should accept any request (body is now empty for path-based parsing)', () => {
+      const requestWithExtra = {
+        someField: 'should be allowed',
+      };
+
+      // The schema now allows any fields since body validation is not needed
+      const result = parseReceiptRequestSchema.parse(requestWithExtra);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('receiptIdParamSchema', () => {
+    it('should validate a valid receipt ID', () => {
+      const validParam = {
         receiptId: '123e4567-e89b-12d3-a456-426614174000',
       };
 
-      const result = parseReceiptRequestSchema.parse(validRequest);
-      expect(result.imageUrl).toBe('https://storage.googleapis.com/bucket/receipt.jpg');
+      const result = receiptIdParamSchema.parse(validParam);
       expect(result.receiptId).toBe('123e4567-e89b-12d3-a456-426614174000');
     });
 
-    it('should reject request with invalid URL', () => {
-      const invalidRequest = {
-        imageUrl: 'not-a-valid-url',
-      };
-
-      expect(() => parseReceiptRequestSchema.parse(invalidRequest)).toThrow();
-    });
-
     it('should reject request with invalid UUID for receiptId', () => {
-      const invalidRequest = {
-        imageUrl: 'https://storage.googleapis.com/bucket/receipt.jpg',
+      const invalidParam = {
         receiptId: 'not-a-uuid',
       };
 
-      expect(() => parseReceiptRequestSchema.parse(invalidRequest)).toThrow();
+      expect(() => receiptIdParamSchema.parse(invalidParam)).toThrow();
     });
 
-    it('should reject request without imageUrl', () => {
-      const invalidRequest = {
-        receiptId: '123e4567-e89b-12d3-a456-426614174000',
+    it('should reject request without receiptId', () => {
+      const invalidParam = {};
+
+      expect(() => receiptIdParamSchema.parse(invalidParam)).toThrow();
+    });
+
+    it('should reject request with empty receiptId string', () => {
+      const invalidParam = {
+        receiptId: '',
       };
 
-      expect(() => parseReceiptRequestSchema.parse(invalidRequest)).toThrow();
+      expect(() => receiptIdParamSchema.parse(invalidParam)).toThrow();
     });
 
-    it('should reject empty request', () => {
-      const invalidRequest = {};
+    it('should reject request with invalid UUID format', () => {
+      const invalidParam = {
+        receiptId: '123e4567-e89b-12d3-a456',
+      };
 
-      expect(() => parseReceiptRequestSchema.parse(invalidRequest)).toThrow();
+      expect(() => receiptIdParamSchema.parse(invalidParam)).toThrow();
     });
   });
 });

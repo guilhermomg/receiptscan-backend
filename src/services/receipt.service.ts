@@ -24,6 +24,24 @@ export class ReceiptService {
     this.fileStorageService = new FileStorageService();
   }
 
+  public async createUploadedReceipt(
+    userId: string,
+    receiptId: string,
+    imageUrl: string
+  ): Promise<Receipt> {
+    try {
+      logger.debug('Creating uploaded receipt placeholder', { userId, receiptId });
+      return await this.receiptRepository.createUploadedReceipt(userId, receiptId, imageUrl);
+    } catch (error) {
+      logger.error('Error in receipt service - createUploadedReceipt', {
+        userId,
+        receiptId,
+        error,
+      });
+      throw error;
+    }
+  }
+
   private async withSignedImageUrl(receipt: Receipt): Promise<Receipt> {
     if (!receipt.imageUrl) {
       return receipt;

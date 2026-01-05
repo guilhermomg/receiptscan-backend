@@ -144,7 +144,36 @@ describe('ParsedReceipt Models', () => {
   describe('ParsedReceipt interface', () => {
     it('should create a complete parsed receipt', () => {
       const parsedReceipt: ParsedReceipt = {
-        merchant: createConfidentField('Whole Foods Market', 0.95),
+        merchant: createConfidentField(
+          {
+            name: 'Whole Foods Market',
+            address: '123 Main St',
+            city: 'Austin',
+            state: 'TX',
+            zip: '73301',
+            country: 'USA',
+            phone: '+1-512-555-1234',
+            email: 'info@wholefoods.com',
+          },
+          0.95
+        ),
+        customer: createConfidentField(
+          {
+            name: 'Jane Doe',
+            city: 'Austin',
+            country: 'USA',
+            email: 'jane@example.com',
+          },
+          0.75
+        ),
+        payment: createConfidentField(
+          {
+            method: 'card',
+            cardNetwork: 'Visa',
+            last4: '4242',
+          },
+          0.8
+        ),
         date: createConfidentField(new Date('2024-01-15'), 0.92),
         total: createConfidentField(127.45, 0.98),
         tax: createConfidentField(11.25, 0.88),
@@ -163,7 +192,8 @@ describe('ParsedReceipt Models', () => {
         processingTime: 2345,
       };
 
-      expect(parsedReceipt.merchant.value).toBe('Whole Foods Market');
+      expect(parsedReceipt.merchant.value.name).toBe('Whole Foods Market');
+      expect(parsedReceipt.payment?.value.cardNetwork).toBe('Visa');
       expect(parsedReceipt.total.value).toBe(127.45);
       expect(parsedReceipt.overallConfidence).toBe(0.92);
       expect(parsedReceipt.lineItems).toHaveLength(1);
@@ -171,7 +201,7 @@ describe('ParsedReceipt Models', () => {
 
     it('should create a minimal parsed receipt without optional fields', () => {
       const parsedReceipt: ParsedReceipt = {
-        merchant: createConfidentField('Test Store', 0.8),
+        merchant: createConfidentField({ name: 'Test Store' }, 0.8),
         date: createConfidentField(new Date(), 0.8),
         total: createConfidentField(100, 0.8),
         currency: createConfidentField('USD', 0.9),
@@ -214,7 +244,7 @@ describe('ParsedReceipt Models', () => {
       const response: ParseReceiptResponse = {
         success: true,
         parsedData: {
-          merchant: createConfidentField('Test Store', 0.9),
+          merchant: createConfidentField({ name: 'Test Store' }, 0.9),
           date: createConfidentField(new Date(), 0.9),
           total: createConfidentField(100, 0.9),
           currency: createConfidentField('USD', 0.9),
@@ -245,7 +275,7 @@ describe('ParsedReceipt Models', () => {
       const response: ParseReceiptResponse = {
         success: true,
         parsedData: {
-          merchant: createConfidentField('Test Store', 0.7),
+          merchant: createConfidentField({ name: 'Test Store' }, 0.7),
           date: createConfidentField(new Date(), 0.7),
           total: createConfidentField(100, 0.7),
           currency: createConfidentField('USD', 0.7),

@@ -79,7 +79,7 @@ describe('Receipt Validation Schemas', () => {
           },
         ],
         imageUrl: 'https://example.com/receipt.jpg',
-        status: ReceiptStatus.PENDING,
+        status: ReceiptStatus.UPLOADED,
       };
 
       const result = createReceiptSchema.parse(validReceipt);
@@ -124,7 +124,7 @@ describe('Receipt Validation Schemas', () => {
       const result = createReceiptSchema.parse(minimalReceipt);
       expect(result.tags).toEqual([]);
       expect(result.lineItems).toEqual([]);
-      expect(result.status).toBe(ReceiptStatus.PENDING);
+      expect(result.status).toBe(ReceiptStatus.UPLOADED);
     });
 
     it('should accept custom category', () => {

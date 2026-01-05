@@ -5,7 +5,13 @@
 import OpenAI from 'openai';
 import config from '../config';
 import logger from '../config/logger';
-import { ParsedReceipt, ParsedLineItem, createConfidentField } from '../models/parsedReceipt.model';
+import {
+  ParsedReceipt,
+  ParsedLineItem,
+  createConfidentField,
+  ContactInfo,
+  PaymentDetails,
+} from '../models/parsedReceipt.model';
 import { Currency } from '../models/receipt.model';
 
 /**
@@ -137,8 +143,34 @@ export class OpenAIService {
     return `Extract the following information from this receipt image and return it as a valid JSON object:
 
 {
-  "merchant": "Store/restaurant name",
+  "merchant": {
+    "name": "Store/restaurant name",
+    "address": "Street and number if present",
+    "city": "City",
+    "state": "State or province",
+    "zip": "Postal code",
+    "country": "Country",
+    "phone": "Phone number",
+    "email": "Email address"
+  },
+  "customer": {
+    "name": "Customer name if present",
+    "address": "Customer address",
+    "city": "Customer city",
+    "state": "Customer state or province",
+    "zip": "Customer postal code",
+    "country": "Customer country",
+    "phone": "Customer phone",
+    "email": "Customer email"
+  },
+  "payment": {
+    "method": "Payment method (card, cash, gift card, etc.)",
+    "cardNetwork": "Card network (Visa, Mastercard, Amex, etc.) if card",
+    "last4": "Last 4 card digits if card"
+  },
   "date": "Transaction date in ISO 8601 format (YYYY-MM-DD)",
+  "time": "Transaction time in HH:mm:ss format (24-hour clock)",
+  "subtotal": "Subtotal amount as a number",
   "total": "Total amount as a number",
   "tax": "Tax amount as a number (if visible)",
   "currency": "ISO 4217 currency code (USD, EUR, BRL, GBP, JPY, CAD, AUD, CHF, or CNY)",
@@ -153,6 +185,8 @@ export class OpenAIService {
   ],
   "confidence": {
     "merchant": "confidence score between 0 and 1",
+    "customer": "confidence score between 0 and 1",
+    "payment": "confidence score between 0 and 1",
     "date": "confidence score between 0 and 1",
     "total": "confidence score between 0 and 1",
     "tax": "confidence score between 0 and 1",
@@ -222,11 +256,48 @@ Requirements:
       // Extract confidence scores
       const confidence = data.confidence || {};
       const merchantConf = confidence.merchant || 0.8;
+      const customerConf = confidence.customer || 0.6;
+      const paymentConf = confidence.payment || 0.6;
       const dateConf = confidence.date || 0.8;
       const totalConf = confidence.total || 0.9;
       const taxConf = confidence.tax || 0.7;
       const categoryConf = confidence.category || 0.7;
       const itemsConf = confidence.items || 0.6;
+
+      const merchantSource =
+        typeof data.merchant === 'string' ? { name: data.merchant } : data.merchant;
+
+      const merchantInfo: ContactInfo = {
+        name: merchantSource?.name || merchantSource?.merchant || merchantSource?.store,
+        address: merchantSource?.address,
+        city: merchantSource?.city,
+        state: merchantSource?.state,
+        zip: merchantSource?.zip,
+        country: merchantSource?.country,
+        phone: merchantSource?.phone,
+        email: merchantSource?.email,
+      };
+
+      const customerInfo: ContactInfo | undefined = data.customer
+        ? {
+            name: data.customer.name,
+            address: data.customer.address,
+            city: data.customer.city,
+            state: data.customer.state,
+            zip: data.customer.zip,
+            country: data.customer.country,
+            phone: data.customer.phone,
+            email: data.customer.email,
+          }
+        : undefined;
+
+      const paymentDetails: PaymentDetails | undefined = data.payment
+        ? {
+            method: data.payment.method,
+            cardNetwork: data.payment.cardNetwork,
+            last4: data.payment.last4,
+          }
+        : undefined;
 
       // Parse line items
       const lineItems: ParsedLineItem[] = (data.items || []).map(
@@ -248,6 +319,8 @@ Requirements:
 
       // Calculate overall confidence
       const confidenceScores = [merchantConf, dateConf, totalConf, currencyConfidence];
+      if (customerInfo) confidenceScores.push(customerConf);
+      if (paymentDetails) confidenceScores.push(paymentConf);
       if (data.tax !== undefined) confidenceScores.push(taxConf);
       if (data.category) confidenceScores.push(categoryConf);
       if (lineItems.length > 0) confidenceScores.push(itemsConf);
@@ -257,7 +330,7 @@ Requirements:
 
       // Build parsed receipt
       const parsedReceipt: ParsedReceipt = {
-        merchant: createConfidentField(data.merchant, merchantConf),
+        merchant: createConfidentField(merchantInfo, merchantConf),
         date: createConfidentField(parsedDate, dateConf),
         total: createConfidentField(Number(data.total), totalConf),
         currency: createConfidentField(currency as Currency, currencyConfidence),
@@ -267,6 +340,14 @@ Requirements:
       };
 
       // Add optional fields
+      if (customerInfo) {
+        parsedReceipt.customer = createConfidentField(customerInfo, customerConf);
+      }
+
+      if (paymentDetails) {
+        parsedReceipt.payment = createConfidentField(paymentDetails, paymentConf);
+      }
+
       if (data.tax !== undefined) {
         parsedReceipt.tax = createConfidentField(Number(data.tax), taxConf);
       }

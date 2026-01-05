@@ -2,8 +2,10 @@ import admin from 'firebase-admin';
 import { Storage } from '@google-cloud/storage';
 import config from './index';
 import logger from './logger';
+import type { Firestore } from 'firebase-admin/firestore';
 
 let firebaseInitialized = false;
+let firestoreInstance: Firestore | null = null;
 
 export const initializeFirebase = (): void => {
   if (firebaseInitialized) {
@@ -26,6 +28,11 @@ export const initializeFirebase = (): void => {
       storageBucket: config.firebase.storageBucket,
     });
 
+    firestoreInstance = admin.firestore();
+    firestoreInstance.settings({
+      ignoreUndefinedProperties: true,
+    });
+
     firebaseInitialized = true;
     logger.info('Firebase Admin SDK initialized successfully');
   } catch (error) {
@@ -43,10 +50,10 @@ export const getAuth = () => {
 };
 
 export const getFirestore = () => {
-  if (!firebaseInitialized) {
+  if (!firebaseInitialized || !firestoreInstance) {
     throw new Error('Firebase not initialized. Call initializeFirebase() first.');
   }
-  return admin.firestore();
+  return firestoreInstance;
 };
 
 export const getStorage = (): Storage => {

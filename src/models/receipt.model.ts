@@ -6,8 +6,8 @@
  * Receipt processing status
  */
 export enum ReceiptStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
+  UPLOADED = 'uploaded',
+  PARSING = 'parsing',
   COMPLETED = 'completed',
   FAILED = 'failed',
 }
@@ -46,12 +46,12 @@ export interface LineItem {
 export interface Receipt {
   id: string;
   userId: string;
-  merchant: string;
-  date: Date;
+  merchant?: string;
+  date?: Date;
   total: number;
   tax?: number;
-  currency: Currency;
-  category: ReceiptCategory | string; // Supports predefined + custom categories
+  currency?: Currency;
+  category?: ReceiptCategory | string; // Supports predefined + custom categories
   tags: string[];
   lineItems: LineItem[];
   imageUrl?: string;

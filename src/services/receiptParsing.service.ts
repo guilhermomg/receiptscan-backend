@@ -5,6 +5,8 @@
 import logger from '../config/logger';
 import { OpenAIService } from './openai.service';
 import { ParseReceiptRequest, ParseReceiptResponse } from '../models/parsedReceipt.model';
+import { ReceiptService } from './receipt.service';
+import { ReceiptStatus } from '../models/receipt.model';
 
 /**
  * Receipt parsing service
@@ -12,9 +14,11 @@ import { ParseReceiptRequest, ParseReceiptResponse } from '../models/parsedRecei
  */
 export class ReceiptParsingService {
   private openAIService: OpenAIService;
+  private receiptService: ReceiptService;
 
   constructor() {
     this.openAIService = new OpenAIService();
+    this.receiptService = new ReceiptService();
   }
 
   /**
@@ -31,10 +35,44 @@ export class ReceiptParsingService {
     });
 
     try {
+      if (receiptId) {
+        await this.receiptService.updateReceipt(receiptId, userId, {
+          status: ReceiptStatus.PARSING,
+        });
+      }
+
       // Try OpenAI first
       if (this.openAIService.isAvailable()) {
         try {
           const parsedData = await this.openAIService.parseReceipt(imageUrl);
+
+          if (receiptId) {
+            const merchantName =
+              parsedData.merchant.value.name ||
+              parsedData.merchant.value.email ||
+              'Unknown merchant';
+
+            // Strip confidence field and undefined values from line items for Firestore
+            const lineItems = parsedData.lineItems.map((item) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { confidence, ...lineItem } = item;
+              // Remove undefined values as Firestore doesn't accept them
+              return Object.fromEntries(
+                Object.entries(lineItem).filter(([, value]) => value !== undefined)
+              ) as Omit<typeof item, 'confidence'>;
+            });
+
+            await this.receiptService.updateReceipt(receiptId, userId, {
+              merchant: merchantName,
+              date: parsedData.date.value,
+              total: parsedData.total.value,
+              tax: parsedData.tax?.value,
+              currency: parsedData.currency.value,
+              category: parsedData.category?.value,
+              lineItems,
+              status: ReceiptStatus.COMPLETED,
+            });
+          }
 
           logger.info('Receipt parsed successfully with OpenAI', {
             userId,
@@ -53,6 +91,12 @@ export class ReceiptParsingService {
             receiptId,
             error,
           });
+
+          if (receiptId) {
+            await this.receiptService.updateReceipt(receiptId, userId, {
+              status: ReceiptStatus.FAILED,
+            });
+          }
 
           // Could implement Google Cloud Vision fallback here
           // For now, return error
@@ -77,6 +121,12 @@ export class ReceiptParsingService {
         receiptId,
         error,
       });
+
+      if (receiptId) {
+        await this.receiptService.updateReceipt(receiptId, userId, {
+          status: ReceiptStatus.FAILED,
+        });
+      }
 
       return {
         success: false,

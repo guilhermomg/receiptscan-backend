@@ -20,8 +20,84 @@ export class ReceiptRepository {
   private receiptsCollection = 'receipts';
   private readonly MAX_TAGS_FILTER = 10;
 
+  public async createUploadedReceipt(
+    userId: string,
+    receiptId: string,
+    imageUrl: string
+  ): Promise<Receipt> {
+    try {
+      const now = new Date();
+
+      const receipt: Omit<Receipt, 'id' | 'date' | 'merchant' | 'currency' | 'category'> = {
+        userId,
+        imageUrl,
+        total: 0,
+        tags: [],
+        lineItems: [],
+        status: ReceiptStatus.UPLOADED,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      };
+
+      const receiptRef = this.getDb().collection(this.receiptsCollection).doc(receiptId);
+      await receiptRef.set(receipt);
+
+      logger.info('Uploaded receipt placeholder created', { receiptId, userId });
+
+      return { id: receiptId, ...receipt };
+    } catch (error) {
+      logger.error('Error creating uploaded receipt placeholder', { userId, receiptId, error });
+      throw new AppError('Failed to create uploaded receipt', 500);
+    }
+  }
+
   private getDb() {
     return getFirestore();
+  }
+
+  /**
+   * Helper method to recursively remove undefined values from objects
+   * Firestore doesn't accept undefined values
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private removeUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null; // Convert undefined to null for Firestore
+    }
+
+    if (Array.isArray(obj)) {
+      // Recursively clean array items and filter out any that become null/undefined
+      return obj
+        .map((item) => this.removeUndefinedValues(item))
+        .filter((item) => item !== null && item !== undefined);
+    }
+
+    if (typeof obj === 'object' && !(obj instanceof Date)) {
+      const cleaned: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const cleanedValue = this.removeUndefinedValues(value);
+        // Only include the property if the cleaned value is not null/undefined
+        // Also handle empty objects
+        if (cleanedValue !== null && cleanedValue !== undefined) {
+          // Skip empty objects unless they're explicitly empty (not the result of cleaning)
+          if (
+            typeof cleanedValue === 'object' &&
+            !Array.isArray(cleanedValue) &&
+            !(cleanedValue instanceof Date)
+          ) {
+            if (Object.keys(cleanedValue).length > 0) {
+              cleaned[key] = cleanedValue;
+            }
+          } else {
+            cleaned[key] = cleanedValue;
+          }
+        }
+      }
+      return cleaned;
+    }
+
+    return obj;
   }
 
   /**
@@ -51,7 +127,7 @@ export class ReceiptRepository {
         tags: receiptData.tags || [],
         lineItems: receiptData.lineItems || [],
         imageUrl: receiptData.imageUrl,
-        status: receiptData.status || ReceiptStatus.PENDING,
+        status: receiptData.status || ReceiptStatus.UPLOADED,
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
@@ -198,7 +274,7 @@ export class ReceiptRepository {
         const searchLower = params.search.toLowerCase();
         filteredReceipts = receipts.filter(
           (receipt) =>
-            receipt.merchant.toLowerCase().includes(searchLower) ||
+            receipt.merchant!.toLowerCase().includes(searchLower) ||
             receipt.tags.some((tag) => tag.toLowerCase().includes(searchLower))
         );
       }
@@ -292,8 +368,11 @@ export class ReceiptRepository {
         throw new AppError('Unauthorized access to receipt', 403);
       }
 
+      // Remove undefined values recursively (Firestore doesn't accept them)
+      const cleanedUpdates = this.removeUndefinedValues(updates);
+
       const updateData: Record<string, unknown> = {
-        ...updates,
+        ...cleanedUpdates,
         updatedAt: new Date(),
       };
 
@@ -310,10 +389,11 @@ export class ReceiptRepository {
 
       return this.mapDocumentToReceipt(receiptId, updatedData);
     } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      logger.error('Error updating receipt', { receiptId, userId, error });
+      logger.error('Error updating receipt ' + (error as Error).message, {
+        receiptId,
+        userId,
+        error,
+      });
       throw new AppError('Failed to update receipt', 500);
     }
   }

@@ -44,7 +44,7 @@ export const createReceiptSchema = z.object({
   tags: z.array(z.string().min(1).max(50)).max(20).default([]),
   lineItems: z.array(lineItemSchema).max(100).default([]),
   imageUrl: z.string().url().optional(),
-  status: receiptStatusSchema.default(ReceiptStatus.PENDING),
+  status: receiptStatusSchema.default(ReceiptStatus.UPLOADED),
 });
 
 /**

@@ -4,6 +4,23 @@
 
 import { Currency, LineItem } from './receipt.model';
 
+export interface ContactInfo {
+  name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface PaymentDetails {
+  method?: string;
+  cardNetwork?: string;
+  last4?: string;
+}
+
 /**
  * Confidence level for extracted fields
  */
@@ -33,12 +50,14 @@ export interface ParsedLineItem extends LineItem {
  * Parsed receipt with confidence scores for each field
  */
 export interface ParsedReceipt {
-  merchant: ConfidentField<string>;
+  merchant: ConfidentField<ContactInfo>;
+  customer?: ConfidentField<ContactInfo>;
   date: ConfidentField<Date>;
   total: ConfidentField<number>;
   tax?: ConfidentField<number>;
   currency: ConfidentField<Currency>;
   category?: ConfidentField<string>;
+  payment?: ConfidentField<PaymentDetails>;
   lineItems: ParsedLineItem[];
   overallConfidence: number; // Average confidence across all fields
   rawResponse?: string; // Raw AI response for debugging

@@ -78,18 +78,28 @@ const handleMulterError = (err: Error, _req: Request, _res: Response, next: Next
  *                   type: string
  *                   example: File uploaded successfully
  *                 data:
- *                   $ref: '#/components/schemas/UploadResponse'
+ *                   type: object
+ *                   properties:
+ *                     receipt:
+ *                       $ref: '#/components/schemas/Receipt'
  *             example:
  *               status: success
- *               message: File uploaded successfully
+ *               message: Receipt uploaded successfully
  *               data:
- *                 receiptId: 550e8400-e29b-41d4-a716-446655440000
- *                 fileName: receipt.jpg
- *                 filePath: receipts/user-123/receipt-456/1704067200000-receipt.jpg
- *                 fileUrl: https://storage.googleapis.com/bucket/receipts/...
- *                 fileSize: 1024000
- *                 mimeType: image/jpeg
- *                 uploadedAt: "2024-01-01T12:00:00.000Z"
+ *                 receipt:
+ *                   id: 550e8400-e29b-41d4-a716-446655440000
+ *                   userId: user-123
+ *                   merchant: ""
+ *                   date: "2024-01-01T12:00:00.000Z"
+ *                   total: 0
+ *                   currency: USD
+ *                   category: Other
+ *                   tags: []
+ *                   lineItems: []
+ *                   imageUrl: https://storage.googleapis.com/bucket/receipts/...?expires=...
+ *                   status: uploaded
+ *                   createdAt: "2024-01-01T12:00:00.000Z"
+ *                   updatedAt: "2024-01-01T12:00:00.000Z"
  *       400:
  *         description: Invalid file (wrong type, too large, or no file provided)
  *         content:
@@ -294,13 +304,14 @@ router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.gen
 
 /**
  * @openapi
- * /receipts/parse:
+ * /receipts/{receiptId}/parse:
  *   post:
  *     tags:
  *       - Receipt Parsing
- *     summary: Parse receipt from image URL using AI
+ *     summary: Parse receipt using AI vision
  *     description: |
  *       Extracts structured data from a receipt image using OpenAI GPT-4 Vision.
+ *       The receipt must have been uploaded first via the upload endpoint.
  *       Returns parsed data with confidence scores for each field.
  *
  *       **Rate Limit:** 10 requests per minute per user
@@ -311,24 +322,15 @@ router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.gen
  *       - **Low** (<0.5): Should be verified manually
  *     security:
  *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - imageUrl
- *             properties:
- *               imageUrl:
- *                 type: string
- *                 format: uri
- *                 description: URL of the receipt image (signed URL from upload endpoint)
- *                 example: https://storage.googleapis.com/bucket/receipts/...
- *               receiptId:
- *                 type: string
- *                 format: uuid
- *                 description: Optional receipt ID if updating existing receipt
+ *     parameters:
+ *       - name: receiptId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID of the receipt to parse (from upload response)
+ *         example: 550e8400-e29b-41d4-a716-446655440000
  *     responses:
  *       200:
  *         description: Receipt parsed successfully
@@ -363,13 +365,19 @@ router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.gen
  *                           type: boolean
  *                           example: false
  *       400:
- *         description: Invalid image URL or missing required fields
+ *         description: Invalid receipt ID or receipt not ready for parsing
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Receipt not found
  *         content:
  *           application/json:
  *             schema:
@@ -387,6 +395,6 @@ router.post('/file-url', authMiddleware, uploadRateLimiter, uploadController.gen
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/parse', authMiddleware, uploadRateLimiter, parsingController.parseReceipt);
+router.post('/:receiptId/parse', authMiddleware, uploadRateLimiter, parsingController.parseReceipt);
 
 export default router;

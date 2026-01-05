@@ -15,8 +15,8 @@ import {
 describe('Receipt Models', () => {
   describe('ReceiptStatus enum', () => {
     it('should have correct status values', () => {
-      expect(ReceiptStatus.PENDING).toBe('pending');
-      expect(ReceiptStatus.PROCESSING).toBe('processing');
+      expect(ReceiptStatus.UPLOADED).toBe('uploaded');
+      expect(ReceiptStatus.PARSING).toBe('parsing');
       expect(ReceiptStatus.COMPLETED).toBe('completed');
       expect(ReceiptStatus.FAILED).toBe('failed');
     });
@@ -24,8 +24,8 @@ describe('Receipt Models', () => {
     it('should have all expected statuses', () => {
       const statuses = Object.values(ReceiptStatus);
       expect(statuses).toHaveLength(4);
-      expect(statuses).toContain('pending');
-      expect(statuses).toContain('processing');
+      expect(statuses).toContain('uploaded');
+      expect(statuses).toContain('parsing');
       expect(statuses).toContain('completed');
       expect(statuses).toContain('failed');
     });
@@ -140,7 +140,7 @@ describe('Receipt Models', () => {
         category: 'Custom Category',
         tags: [],
         lineItems: [],
-        status: ReceiptStatus.PENDING,
+        status: ReceiptStatus.UPLOADED,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -202,14 +202,14 @@ describe('Receipt Models', () => {
           },
         ],
         imageUrl: 'https://example.com/receipt.jpg',
-        status: ReceiptStatus.PENDING,
+        status: ReceiptStatus.UPLOADED,
       };
 
       expect(dto.tax).toBe(8.0);
       expect(dto.tags).toHaveLength(2);
       expect(dto.lineItems).toHaveLength(1);
       expect(dto.imageUrl).toBeDefined();
-      expect(dto.status).toBe(ReceiptStatus.PENDING);
+      expect(dto.status).toBe(ReceiptStatus.UPLOADED);
     });
   });
 
