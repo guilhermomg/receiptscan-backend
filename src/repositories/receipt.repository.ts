@@ -158,7 +158,17 @@ export class ReceiptRepository {
       // Apply sorting AFTER count query
       const sortField = params.sortBy || 'date';
       const sortOrder = params.sortOrder || 'desc';
-      query = query.orderBy(sortField, sortOrder);
+      const hasDateFilter = Boolean(params.startDate || params.endDate);
+
+      if (hasDateFilter) {
+        query = query.orderBy('date', sortOrder);
+
+        if (sortField !== 'date') {
+          query = query.orderBy(sortField, sortOrder);
+        }
+      } else {
+        query = query.orderBy(sortField, sortOrder);
+      }
 
       // Cursor-based pagination
       const limit = params.limit || 20;
