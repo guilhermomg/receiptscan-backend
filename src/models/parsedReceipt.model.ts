@@ -53,8 +53,10 @@ export interface ParsedReceipt {
   merchant: ConfidentField<ContactInfo>;
   customer?: ConfidentField<ContactInfo>;
   date: ConfidentField<Date>;
+  subtotal?: ConfidentField<number>;
   total: ConfidentField<number>;
   tax?: ConfidentField<number>;
+  tip?: ConfidentField<number>;
   currency: ConfidentField<Currency>;
   category?: ConfidentField<string>;
   payment?: ConfidentField<PaymentDetails>;

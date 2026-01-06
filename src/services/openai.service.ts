@@ -166,11 +166,12 @@ export class OpenAIService {
   "payment": {
     "method": "Payment method (card, cash, gift card, etc.)",
     "cardNetwork": "Card network (Visa, Mastercard, Amex, etc.) if card",
-    "last4": "Last 4 card digits if card"
+    "last4": "Last 4 card digits if card, if visible and if a the 4 digits are a valid number"
   },
   "date": "Transaction date in ISO 8601 format (YYYY-MM-DD)",
   "time": "Transaction time in HH:mm:ss format (24-hour clock)",
   "subtotal": "Subtotal amount as a number",
+  "tip": "Tip/gratuity amount as a number (if present)",
   "total": "Total amount as a number",
   "tax": "Tax amount as a number (if visible)",
   "currency": "ISO 4217 currency code (USD, EUR, BRL, GBP, JPY, CAD, AUD, CHF, or CNY)",
@@ -180,7 +181,8 @@ export class OpenAIService {
       "description": "Item name",
       "quantity": "Quantity as a number",
       "unitPrice": "Price per unit as a number",
-      "total": "Total price for this item as a number"
+      "total": "Total price for this item as a number",
+      "discount": "Discount applied to this item as a number (if any)"
     }
   ],
   "confidence": {
@@ -188,6 +190,8 @@ export class OpenAIService {
     "customer": "confidence score between 0 and 1",
     "payment": "confidence score between 0 and 1",
     "date": "confidence score between 0 and 1",
+    "subtotal": "confidence score between 0 and 1",
+    "tip": "confidence score between 0 and 1",
     "total": "confidence score between 0 and 1",
     "tax": "confidence score between 0 and 1",
     "currency": "confidence score between 0 and 1",
@@ -259,6 +263,8 @@ Requirements:
       const customerConf = confidence.customer || 0.6;
       const paymentConf = confidence.payment || 0.6;
       const dateConf = confidence.date || 0.8;
+      const subtotalConf = confidence.subtotal || 0.8;
+      const tipConf = confidence.tip || 0.7;
       const totalConf = confidence.total || 0.9;
       const taxConf = confidence.tax || 0.7;
       const categoryConf = confidence.category || 0.7;
@@ -306,12 +312,14 @@ Requirements:
           quantity?: number;
           unitPrice?: number;
           total?: number;
+          discount?: number;
           category?: string;
         }) => ({
           description: item.description || 'Unknown item',
           quantity: Number(item.quantity) || 1,
           unitPrice: Number(item.unitPrice) || 0,
           total: Number(item.total) || 0,
+          discount: item.discount !== undefined ? Number(item.discount) : undefined,
           category: item.category,
           confidence: itemsConf,
         })
@@ -321,6 +329,8 @@ Requirements:
       const confidenceScores = [merchantConf, dateConf, totalConf, currencyConfidence];
       if (customerInfo) confidenceScores.push(customerConf);
       if (paymentDetails) confidenceScores.push(paymentConf);
+      if (data.subtotal !== undefined) confidenceScores.push(subtotalConf);
+      if (data.tip !== undefined) confidenceScores.push(tipConf);
       if (data.tax !== undefined) confidenceScores.push(taxConf);
       if (data.category) confidenceScores.push(categoryConf);
       if (lineItems.length > 0) confidenceScores.push(itemsConf);
@@ -346,6 +356,14 @@ Requirements:
 
       if (paymentDetails) {
         parsedReceipt.payment = createConfidentField(paymentDetails, paymentConf);
+      }
+
+      if (data.subtotal !== undefined) {
+        parsedReceipt.subtotal = createConfidentField(Number(data.subtotal), subtotalConf);
+      }
+
+      if (data.tip !== undefined) {
+        parsedReceipt.tip = createConfidentField(Number(data.tip), tipConf);
       }
 
       if (data.tax !== undefined) {

@@ -3,6 +3,35 @@
  */
 
 /**
+ * Merchant details
+ */
+export interface MerchantDetails {
+  name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+}
+
+/**
+ * Confidence scores for parsed fields
+ */
+export interface ConfidenceScores {
+  merchant?: number;
+  date?: number;
+  total?: number;
+  tax?: number;
+  currency?: number;
+  category?: number;
+  payment?: number;
+  lineItems?: number;
+  overall?: number;
+}
+
+/**
  * Receipt processing status
  */
 export enum ReceiptStatus {
@@ -37,6 +66,7 @@ export interface LineItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  discount?: number;
   category?: string;
 }
 
@@ -47,15 +77,20 @@ export interface Receipt {
   id: string;
   userId: string;
   merchant?: string;
+  merchantDetails?: MerchantDetails;
   date?: Date;
   total: number;
+  subtotal?: number;
   tax?: number;
+  tip?: number;
   currency?: Currency;
   category?: ReceiptCategory | string; // Supports predefined + custom categories
+  paymentMethod?: string;
   tags: string[];
   lineItems: LineItem[];
   imageUrl?: string;
   status: ReceiptStatus;
+  confidenceScores?: ConfidenceScores;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null; // Soft delete timestamp
@@ -66,15 +101,20 @@ export interface Receipt {
  */
 export interface CreateReceiptDto {
   merchant: string;
+  merchantDetails?: MerchantDetails;
   date: Date;
   total: number;
+  subtotal?: number;
   tax?: number;
+  tip?: number;
   currency: Currency;
   category: ReceiptCategory | string;
+  paymentMethod?: string;
   tags?: string[];
   lineItems?: LineItem[];
   imageUrl?: string;
   status?: ReceiptStatus;
+  confidenceScores?: ConfidenceScores;
 }
 
 /**
@@ -82,15 +122,20 @@ export interface CreateReceiptDto {
  */
 export interface UpdateReceiptDto {
   merchant?: string;
+  merchantDetails?: MerchantDetails;
   date?: Date;
   total?: number;
+  subtotal?: number;
   tax?: number;
+  tip?: number;
   currency?: Currency;
   category?: ReceiptCategory | string;
+  paymentMethod?: string;
   tags?: string[];
   lineItems?: LineItem[];
   imageUrl?: string;
   status?: ReceiptStatus;
+  confidenceScores?: ConfidenceScores;
 }
 
 /**

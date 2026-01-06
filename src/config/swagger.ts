@@ -170,6 +170,12 @@ const swaggerDefinition = {
             description: 'Total item price',
             example: 1.58,
           },
+          discount: {
+            type: 'number',
+            description: 'Discount applied to this item',
+            example: 0.2,
+            nullable: true,
+          },
           category: {
             type: 'string',
             description: 'Item category',
@@ -421,6 +427,22 @@ const swaggerDefinition = {
               { properties: { value: { type: 'string', format: 'date-time' } } },
             ],
           },
+          subtotal: {
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'number', example: 115 } } },
+            ],
+            nullable: true,
+            description: 'Subtotal before tax and tip',
+          },
+          tip: {
+            allOf: [
+              { $ref: '#/components/schemas/ConfidentField' },
+              { properties: { value: { type: 'number', example: 20 } } },
+            ],
+            nullable: true,
+            description: 'Tip/gratuity amount',
+          },
           total: {
             allOf: [
               { $ref: '#/components/schemas/ConfidentField' },
@@ -453,6 +475,7 @@ const swaggerDefinition = {
               { properties: { value: { $ref: '#/components/schemas/PaymentDetails' } } },
             ],
             nullable: true,
+            description: 'Payment method details',
           },
           lineItems: {
             type: 'array',
@@ -465,11 +488,13 @@ const swaggerDefinition = {
                     confidence: {
                       type: 'number',
                       example: 0.75,
+                      description: 'Confidence score for this line item',
                     },
                   },
                 },
               ],
             },
+            description: 'Individual line items with confidence scores and optional discount',
           },
           overallConfidence: {
             type: 'number',

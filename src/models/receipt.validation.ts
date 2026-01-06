@@ -21,6 +21,35 @@ const receiptStatusSchema = z.nativeEnum(ReceiptStatus);
 const receiptCategorySchema = z.union([z.nativeEnum(ReceiptCategory), z.string().min(1).max(100)]);
 
 /**
+ * Merchant details validation schema
+ */
+export const merchantDetailsSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  address: z.string().max(300).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(50).optional(),
+  zip: z.string().max(20).optional(),
+  country: z.string().max(100).optional(),
+  phone: z.string().max(30).optional(),
+  email: z.string().email().optional(),
+});
+
+/**
+ * Confidence scores validation schema
+ */
+export const confidenceScoresSchema = z.object({
+  merchant: z.number().min(0).max(1).optional(),
+  date: z.number().min(0).max(1).optional(),
+  total: z.number().min(0).max(1).optional(),
+  tax: z.number().min(0).max(1).optional(),
+  currency: z.number().min(0).max(1).optional(),
+  category: z.number().min(0).max(1).optional(),
+  payment: z.number().min(0).max(1).optional(),
+  lineItems: z.number().min(0).max(1).optional(),
+  overall: z.number().min(0).max(1).optional(),
+});
+
+/**
  * Line item validation schema
  */
 export const lineItemSchema = z.object({
@@ -28,6 +57,7 @@ export const lineItemSchema = z.object({
   quantity: z.number().positive(),
   unitPrice: z.number().nonnegative(),
   total: z.number().nonnegative(),
+  discount: z.number().nonnegative().optional(),
   category: z.string().min(1).max(100).optional(),
 });
 
@@ -36,15 +66,20 @@ export const lineItemSchema = z.object({
  */
 export const createReceiptSchema = z.object({
   merchant: z.string().min(1).max(200),
+  merchantDetails: merchantDetailsSchema.optional(),
   date: z.coerce.date(),
   total: z.number().nonnegative(),
+  subtotal: z.number().nonnegative().optional(),
   tax: z.number().nonnegative().optional(),
+  tip: z.number().nonnegative().optional(),
   currency: currencySchema,
   category: receiptCategorySchema,
+  paymentMethod: z.string().max(100).optional(),
   tags: z.array(z.string().min(1).max(50)).max(20).default([]),
   lineItems: z.array(lineItemSchema).max(100).default([]),
   imageUrl: z.string().url().optional(),
   status: receiptStatusSchema.default(ReceiptStatus.UPLOADED),
+  confidenceScores: confidenceScoresSchema.optional(),
 });
 
 /**
@@ -52,15 +87,20 @@ export const createReceiptSchema = z.object({
  */
 export const updateReceiptSchema = z.object({
   merchant: z.string().min(1).max(200).optional(),
+  merchantDetails: merchantDetailsSchema.optional(),
   date: z.coerce.date().optional(),
   total: z.number().nonnegative().optional(),
+  subtotal: z.number().nonnegative().optional(),
   tax: z.number().nonnegative().optional(),
+  tip: z.number().nonnegative().optional(),
   currency: currencySchema.optional(),
   category: receiptCategorySchema.optional(),
+  paymentMethod: z.string().max(100).optional(),
   tags: z.array(z.string().min(1).max(50)).max(20).optional(),
   lineItems: z.array(lineItemSchema).max(100).optional(),
   imageUrl: z.string().url().optional(),
   status: receiptStatusSchema.optional(),
+  confidenceScores: confidenceScoresSchema.optional(),
 });
 
 /**

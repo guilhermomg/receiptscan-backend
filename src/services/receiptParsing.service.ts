@@ -62,14 +62,35 @@ export class ReceiptParsingService {
               ) as Omit<typeof item, 'confidence'>;
             });
 
+            // Build confidence scores object
+            const confidenceScores = {
+              merchant: parsedData.merchant.confidence,
+              date: parsedData.date.confidence,
+              total: parsedData.total.confidence,
+              tax: parsedData.tax?.confidence,
+              subtotal: parsedData.subtotal?.confidence,
+              tip: parsedData.tip?.confidence,
+              currency: parsedData.currency.confidence,
+              category: parsedData.category?.confidence,
+              payment: parsedData.payment?.confidence,
+              lineItems:
+                parsedData.lineItems.length > 0 ? parsedData.lineItems[0].confidence : undefined,
+              overall: parsedData.overallConfidence,
+            };
+
             await this.receiptService.updateReceipt(receiptId, userId, {
               merchant: merchantName,
+              merchantDetails: parsedData.merchant.value,
               date: parsedData.date.value,
               total: parsedData.total.value,
+              subtotal: parsedData.subtotal?.value,
+              tip: parsedData.tip?.value,
               tax: parsedData.tax?.value,
               currency: parsedData.currency.value,
               category: parsedData.category?.value,
+              paymentMethod: parsedData.payment?.value.method,
               lineItems,
+              confidenceScores,
               status: ReceiptStatus.COMPLETED,
             });
           }
